@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aita"
+version = "0.1.0"
+description = "CLI tool for conversational API testing with LLM assertions"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "PyYAML>=6.0",
+]
+
+[project.scripts]
+aita = "aita.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["aita*"]

@@ -1,0 +1,44 @@
+# Aita global configuration (required at repository root).
+#
+# Merge precedence for shared keys:
+#   test document > testsuite aita.yaml > this global aita.yaml
+#
+# Shared keys supported by Aita:
+#   endpoint, asserter, pre-test, post-test
+
+# Target API endpoint used for each round input.
+endpoint: http://localhost:8000/chat
+
+asserter:
+  # OpenAI-compatible chat completions endpoint.
+  url: https://api.groq.com/openai/v1/chat/completions
+
+  # API key can be injected from environment variables.
+  api-key: ${LLM_API_KEY}
+
+  # Optional passthrough options for asserter invocation.
+  # These are merged by precedence exactly like other shared config.
+  # Note: Aita always controls the assertion messages payload.
+  invoke-options:
+    model: openai/gpt-oss-20b
+    temperature: 0
+    top_p: 1
+    max_tokens: 512
+
+# Shell commands run before each test case in execution order.
+pre-test:
+  - echo "global pre-test hook"
+
+# Shell commands run after each test case (always executed).
+post-test:
+  - echo "global post-test hook"
+
+# -------------------------------------------------------------------
+# Per-test document keys (NOT used in root aita.yaml, shown for reference)
+# -------------------------------------------------------------------
+# name: test name (required in test docs)
+# rounds: list of rounds (required in test docs)
+# rounds[].input: input text (required)
+# rounds[].expected: optional
+# rounds[].expected.response: optional string hint
+# rounds[].expected.fail-on: optional failure criteria string
