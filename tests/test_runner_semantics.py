@@ -4,7 +4,9 @@ import unittest
 from unittest.mock import patch
 
 from aita.cli import _run_single_test
+from aita.models import AuthRequestSpec
 from aita.models import AsserterConfig
+from aita.models import IdentityConfig
 from aita.models import RoundExpected
 from aita.models import RoundSpec
 from aita.models import TestSpec
@@ -16,6 +18,7 @@ class RunnerSemanticsTests(unittest.TestCase):
             name="x",
             endpoint="http://e",
             asserter=AsserterConfig(url="http://a", api_key="k", invoke_options={}),
+            identity=IdentityConfig(mode="legacy", auth_request=None),
             pre_test=(),
             post_test=(),
             rounds=(RoundSpec(input_text="hi", expected=None),),
@@ -23,7 +26,8 @@ class RunnerSemanticsTests(unittest.TestCase):
             source_document_index=1,
         )
 
-        with patch("aita.cli.call_endpoint", return_value="ok") as endpoint_mock:
+        with patch("aita.cli.call_endpoint") as endpoint_mock:
+            endpoint_mock.return_value.body = "ok"
             with patch("aita.cli.assert_round") as asserter_mock:
                 result = _run_single_test(spec, max_rounds=None, timeout=5, verbose=False)
 
@@ -37,23 +41,112 @@ class RunnerSemanticsTests(unittest.TestCase):
             name="x",
             endpoint="http://e",
             asserter=AsserterConfig(url="http://a", api_key="k", invoke_options={}),
+            identity=IdentityConfig(mode="legacy", auth_request=None),
             pre_test=(),
             post_test=(),
             rounds=(
-                RoundSpec(input_text="r1", expected=RoundExpected(response="x", fail_on="bad")),
-                RoundSpec(input_text="r2", expected=RoundExpected(response="x", fail_on="bad")),
+                RoundSpec(
+                    input_text="r1",
+                    expected=RoundExpected(
+                        response="x",
+                        fail_on="bad",
+                        status_code=None,
+                        status_kind=None,
+                        has_session_id=None,
+                        metadata_has=(),
+                    ),
+                ),
+                RoundSpec(
+                    input_text="r2",
+                    expected=RoundExpected(
+                        response="x",
+                        fail_on="bad",
+                        status_code=None,
+                        status_kind=None,
+                        has_session_id=None,
+                        metadata_has=(),
+                    ),
+                ),
             ),
             source_file="case.yaml",
             source_document_index=1,
         )
 
-        with patch("aita.cli.call_endpoint", return_value="ok") as endpoint_mock:
+        with patch("aita.cli.call_endpoint") as endpoint_mock:
+            endpoint_mock.return_value.body = "ok"
             with patch("aita.cli.assert_round", return_value=(False, "failed")):
                 result = _run_single_test(spec, max_rounds=None, timeout=5, verbose=False)
 
         self.assertFalse(result.passed)
         self.assertEqual(result.rounds_run, 1)
         self.assertEqual(endpoint_mock.call_count, 1)
+
+    def test_logged_in_bootstrap_runs_before_rounds(self) -> None:
+        spec = TestSpec(
+            name="x",
+            endpoint="http://e",
+            asserter=AsserterConfig(url="http://a", api_key="k", invoke_options={}),
+            identity=IdentityConfig(
+                mode="logged-in",
+                auth_request=AuthRequestSpec(
+                    endpoint="http://e/login",
+                    method="POST",
+                    headers={},
+                    body={"username": "u", "password": "p"},
+                ),
+            ),
+            pre_test=(),
+            post_test=(),
+            rounds=(RoundSpec(input_text="r1", expected=None),),
+            source_file="case.yaml",
+            source_document_index=1,
+        )
+
+        with patch("aita.cli.run_auth_request") as auth_mock:
+            auth_mock.return_value.body = "ok"
+            auth_mock.return_value.status_code = 200
+            auth_mock.return_value.headers = {}
+            with patch("aita.cli.call_endpoint") as endpoint_mock:
+                endpoint_mock.return_value.body = "ok"
+                result = _run_single_test(spec, max_rounds=None, timeout=5, verbose=False)
+
+        self.assertTrue(result.passed)
+        self.assertEqual(endpoint_mock.call_count, 1)
+
+    def test_deterministic_only_expected_skips_llm(self) -> None:
+        spec = TestSpec(
+            name="x",
+            endpoint="http://e",
+            asserter=AsserterConfig(url="http://a", api_key="k", invoke_options={}),
+            identity=IdentityConfig(mode="legacy", auth_request=None),
+            pre_test=(),
+            post_test=(),
+            rounds=(
+                RoundSpec(
+                    input_text="r1",
+                    expected=RoundExpected(
+                        response=None,
+                        fail_on=None,
+                        status_code=200,
+                        status_kind=None,
+                        has_session_id=None,
+                        metadata_has=(),
+                    ),
+                ),
+            ),
+            source_file="case.yaml",
+            source_document_index=1,
+        )
+
+        with patch("aita.cli.call_endpoint") as endpoint_mock:
+            endpoint_mock.return_value.body = "{}"
+            endpoint_mock.return_value.status_code = 200
+            endpoint_mock.return_value.headers = {}
+            with patch("aita.cli.assert_round") as asserter_mock:
+                result = _run_single_test(spec, max_rounds=None, timeout=5, verbose=False)
+
+        self.assertTrue(result.passed)
+        self.assertEqual(asserter_mock.call_count, 0)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
- 
+Aita is cli tool running test against an AI assistant API to see if it replies as expected.
+
  # Rules on coding:
  1. use as less as possible dependencies in python
  2. follow the best practices of python
@@ -7,6 +8,6 @@
  5. prefer (explicity + readability) over implicity and  performance
 
 
- Use the virtual environment `.venv` in the project root to manage dependencies and isolate the project environment.
+ Use virtual environment `.venv` in the project root.
 
  run test: `python -m unittest discover tests/`

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from dataclasses import field
 from dataclasses import dataclass
+from http.cookiejar import CookieJar
 from typing import Any
+from typing import Literal
 
 
 @dataclass(frozen=True)
@@ -15,6 +18,24 @@ class AsserterConfig:
 class RoundExpected:
     response: str | None
     fail_on: str | None
+    status_code: int | None
+    status_kind: str | None
+    has_session_id: bool | None
+    metadata_has: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class AuthRequestSpec:
+    endpoint: str
+    method: str
+    headers: dict[str, str]
+    body: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class IdentityConfig:
+    mode: Literal["legacy", "anonymous", "logged-in"]
+    auth_request: AuthRequestSpec | None
 
 
 @dataclass(frozen=True)
@@ -28,11 +49,27 @@ class TestSpec:
     name: str
     endpoint: str
     asserter: AsserterConfig
+    identity: IdentityConfig
     pre_test: tuple[str, ...]
     post_test: tuple[str, ...]
     rounds: tuple[RoundSpec, ...]
     source_file: str
     source_document_index: int
+
+
+@dataclass(frozen=True)
+class EndpointResponse:
+    body: str
+    status_code: int
+    headers: dict[str, str]
+
+
+@dataclass
+class RuntimeContext:
+    identity_mode: Literal["legacy", "anonymous", "logged-in"]
+    cookie_jar: CookieJar = field(default_factory=CookieJar)
+    opener: Any | None = None
+    session_id: str | None = None
 
 
 @dataclass(frozen=True)

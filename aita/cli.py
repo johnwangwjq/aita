@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Sequence
 
@@ -7,14 +8,20 @@ import click
 
 from aita import exit_codes
 from aita.config import build_test_specs
+from aita.config import load_dotenv
 from aita.config import load_suite_config
 from aita.config import load_test_documents
 from aita.config import require_global_config
+from aita.deterministic_assertions import assert_deterministic_expectations
+from aita.deterministic_assertions import should_run_llm_assertion
 from aita.discovery import discover_test_files
 from aita.hooks import run_hooks
 from aita.http_client import call_endpoint
+from aita.http_client import create_runtime_context
+from aita.http_client import run_auth_request
 from aita.llm_asserter import assert_round
 from aita.models import RoundResult
+from aita.models import RuntimeContext
 from aita.models import TestResult
 from aita.models import TestSpec
 from aita.report import build_summary
@@ -56,6 +63,7 @@ def _run_command(
     verbose: bool,
 ) -> int:
     cwd = Path.cwd()
+    load_dotenv(cwd)
     global_config = require_global_config(cwd)
     suite_config = load_suite_config(target)
 
@@ -69,8 +77,36 @@ def _run_command(
         return exit_codes.PASS
 
     results: list[TestResult] = []
+    logged_in_context_cache: dict[str, RuntimeContext] = {}
     for spec in all_specs:
-        results.append(_run_single_test(spec, max_rounds=max_rounds, timeout=timeout, verbose=verbose))
+        runtime_context: RuntimeContext | None = None
+        perform_login_bootstrap = True
+
+        if spec.identity.mode == "logged-in":
+            cache_key = _build_logged_in_cache_key(spec)
+            runtime_context = logged_in_context_cache.get(cache_key)
+            if runtime_context is None:
+                runtime_context = create_runtime_context(spec.identity.mode)
+                if spec.identity.auth_request is None:
+                    raise ValueError("identity.auth-request is required when identity.mode is logged-in")
+                run_auth_request(
+                    auth_request=spec.identity.auth_request,
+                    timeout=timeout,
+                    context=runtime_context,
+                )
+                logged_in_context_cache[cache_key] = runtime_context
+            perform_login_bootstrap = False
+
+        results.append(
+            _run_single_test(
+                spec,
+                max_rounds=max_rounds,
+                timeout=timeout,
+                verbose=verbose,
+                runtime_context=runtime_context,
+                perform_login_bootstrap=perform_login_bootstrap,
+            )
+        )
 
     summary = build_summary(results)
     print(format_summary(summary))
@@ -82,27 +118,81 @@ def _run_command(
     return exit_codes.PASS
 
 
-def _run_single_test(spec: TestSpec, max_rounds: int | None, timeout: int, verbose: bool) -> TestResult:
+def _run_single_test(
+    spec: TestSpec,
+    max_rounds: int | None,
+    timeout: int,
+    verbose: bool,
+    runtime_context: RuntimeContext | None = None,
+    perform_login_bootstrap: bool = True,
+) -> TestResult:
     rounds_run = 0
     round_results: list[RoundResult] = []
     failure_reason: str | None = None
     errored = False
+    if runtime_context is None:
+        runtime_context = create_runtime_context(spec.identity.mode)
 
     try:
         run_hooks(spec.pre_test, cwd=Path.cwd())
+
+        if spec.identity.mode == "logged-in" and perform_login_bootstrap:
+            if spec.identity.auth_request is None:
+                raise ValueError("identity.auth-request is required when identity.mode is logged-in")
+            run_auth_request(
+                auth_request=spec.identity.auth_request,
+                timeout=timeout,
+                context=runtime_context,
+            )
 
         for index, round_spec in enumerate(spec.rounds, start=1):
             if max_rounds is not None and index > max_rounds:
                 break
 
-            endpoint_response = call_endpoint(spec.endpoint, round_spec.input_text, timeout=timeout)
+            endpoint_response = call_endpoint(
+                endpoint=spec.endpoint,
+                input_text=round_spec.input_text,
+                timeout=timeout,
+                context=runtime_context,
+            )
             rounds_run += 1
 
             if round_spec.expected is None:
                 round_results.append(
                     RoundResult(
                         index=index,
-                        endpoint_response=endpoint_response,
+                        endpoint_response=endpoint_response.body,
+                        assertion_skipped=True,
+                        assertion_passed=True,
+                        failure_reason=None,
+                    )
+                )
+                continue
+
+            deterministic_ok, deterministic_reason = assert_deterministic_expectations(
+                expected=round_spec.expected,
+                endpoint_response=endpoint_response,
+            )
+            if not deterministic_ok:
+                failure_reason = deterministic_reason or "Deterministic assertion failed"
+                round_results.append(
+                    RoundResult(
+                        index=index,
+                        endpoint_response=endpoint_response.body,
+                        assertion_skipped=False,
+                        assertion_passed=False,
+                        failure_reason=failure_reason,
+                    )
+                )
+                break
+
+            if not should_run_llm_assertion(round_spec.expected):
+                if verbose:
+                    print(f"[{spec.name}] round {index}: deterministic assertions passed")
+                round_results.append(
+                    RoundResult(
+                        index=index,
+                        endpoint_response=endpoint_response.body,
                         assertion_skipped=True,
                         assertion_passed=True,
                         failure_reason=None,
@@ -113,7 +203,7 @@ def _run_single_test(spec: TestSpec, max_rounds: int | None, timeout: int, verbo
             assertion_passed, assertion_reason = assert_round(
                 asserter=spec.asserter,
                 input_text=round_spec.input_text,
-                endpoint_response=endpoint_response,
+                endpoint_response=endpoint_response.body,
                 expected_response=round_spec.expected.response,
                 fail_on=round_spec.expected.fail_on,
                 timeout=timeout,
@@ -127,7 +217,7 @@ def _run_single_test(spec: TestSpec, max_rounds: int | None, timeout: int, verbo
                 round_results.append(
                     RoundResult(
                         index=index,
-                        endpoint_response=endpoint_response,
+                        endpoint_response=endpoint_response.body,
                         assertion_skipped=False,
                         assertion_passed=False,
                         failure_reason=failure_reason,
@@ -138,7 +228,7 @@ def _run_single_test(spec: TestSpec, max_rounds: int | None, timeout: int, verbo
             round_results.append(
                 RoundResult(
                     index=index,
-                    endpoint_response=endpoint_response,
+                    endpoint_response=endpoint_response.body,
                     assertion_skipped=False,
                     assertion_passed=True,
                     failure_reason=None,
@@ -161,3 +251,19 @@ def _run_single_test(spec: TestSpec, max_rounds: int | None, timeout: int, verbo
         rounds_run=rounds_run,
         rounds=tuple(round_results),
     )
+
+
+def _build_logged_in_cache_key(spec: TestSpec) -> str:
+    auth = spec.identity.auth_request
+    if auth is None:
+        raise ValueError("identity.auth-request is required when identity.mode is logged-in")
+
+    payload = {
+        "mode": spec.identity.mode,
+        "endpoint": spec.endpoint,
+        "auth_endpoint": auth.endpoint,
+        "auth_method": auth.method,
+        "auth_headers": auth.headers,
+        "auth_body": auth.body,
+    }
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))

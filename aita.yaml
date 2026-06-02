@@ -4,10 +4,13 @@
 #   test document > testsuite aita.yaml > this global aita.yaml
 #
 # Shared keys supported by Aita:
-#   endpoint, asserter, pre-test, post-test
+#   endpoint, asserter, identity, pre-test, post-test
 
-# Target API endpoint used for each round input.
-endpoint: http://localhost:8000/chat
+# Target API endpoint used for chat rounds.
+# v1 is chat-first: each round posts to this endpoint with JSON body:
+#   {"message": "<round input>"}
+# In anonymous mode, session_id is auto-added after first response provides it.
+endpoint: http://localhost:3000/api/chat
 
 asserter:
   # OpenAI-compatible chat completions endpoint.
@@ -18,12 +21,31 @@ asserter:
 
   # Optional passthrough options for asserter invocation.
   # These are merged by precedence exactly like other shared config.
-  # Note: Aita always controls the assertion messages payload.
+  # Aita always controls the assertion messages payload structure.
   invoke-options:
     model: openai/gpt-oss-20b
     temperature: 0
     top_p: 1
     max_tokens: 512
+
+# Identity modes:
+# - legacy: no auth/session automation
+# - anonymous: auto persist/reuse session_id in chat payloads
+# - logged-in: run auth-request bootstrap and reuse authenticated cookies
+identity:
+  mode: anonymous
+
+  # Required only when mode=logged-in.
+  # This request runs as login bootstrap before test rounds.
+  # If defined in testsuite aita.yaml, it is shared by all tests in that suite.
+  # auth-request:
+  #   endpoint: ${ZJB_WEB_BASE_URL}/api/login
+  #   method: POST
+  #   headers:
+  #     Content-Type: application/json
+  #   body:
+  #     email: ${ZJB_TEST_USER_EMAIL}
+  #     password: ${ZJB_TEST_USER_PASSWORD}
 
 # Shell commands run before each test case in execution order.
 pre-test:
@@ -34,11 +56,33 @@ post-test:
   - echo "global post-test hook"
 
 # -------------------------------------------------------------------
-# Per-test document keys (NOT used in root aita.yaml, shown for reference)
+# Test document and round options (reference only; not used by root aita.yaml)
 # -------------------------------------------------------------------
 # name: test name (required in test docs)
 # rounds: list of rounds (required in test docs)
-# rounds[].input: input text (required)
-# rounds[].expected: optional
-# rounds[].expected.response: optional string hint
-# rounds[].expected.fail-on: optional failure criteria string
+# rounds[].input: user message sent to endpoint (required)
+# rounds[].expected: optional checks
+# rounds[].expected.response: optional expected hint for LLM assertion
+# rounds[].expected.fail-on: optional failure criteria for LLM assertion
+# rounds[].expected.status-code: optional deterministic HTTP status check
+# rounds[].expected.status-kind: optional deterministic JSON status.kind check
+# rounds[].expected.has-session-id: optional deterministic session_id presence check
+# rounds[].expected.metadata-has: optional deterministic metadata key checks
+
+# Example test document:
+# ---
+# name: anonymous planning continuity
+# identity:
+#   mode: anonymous
+# rounds:
+#   - input: 我想申请英国计算机硕士，帮我做规划
+#     expected:
+#       status-code: 200
+#       status-kind: ok
+#       has-session-id: true
+#       fail-on: 没有理解用户意图
+#   - input: 我的目标是 2027 秋季入学
+#     expected:
+#       status-code: 200
+#       status-kind: ok
+#       has-session-id: true
