@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Sequence
 
 import click
+from click.exceptions import NoArgsIsHelpError
+from click.exceptions import UsageError
 
 from aita import exit_codes
 from aita.config import build_test_specs
@@ -30,8 +32,15 @@ from aita.report import format_summary
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = list(argv) if argv is not None else None
-    result = cli.main(args=args, prog_name="aita", standalone_mode=False)
-    return int(result)
+    try:
+        result = cli.main(args=args, prog_name="aita", standalone_mode=False)
+        return int(result)
+    except NoArgsIsHelpError as exc:
+        click.echo(exc.ctx.get_help())
+        return 0
+    except UsageError as exc:
+        click.echo(str(exc), err=True)
+        return 2
 
 
 @click.group()

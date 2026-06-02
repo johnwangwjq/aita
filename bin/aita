@@ -24,4 +24,10 @@ if [[ ! -x "${VENV_PYTHON}" ]]; then
   exit 127
 fi
 
+if [[ -n "${PYTHONPATH:-}" ]]; then
+  export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH}"
+else
+  export PYTHONPATH="${PROJECT_ROOT}"
+fi
+
 exec "${VENV_PYTHON}" -m aita "$@"
