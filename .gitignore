@@ -1,3 +1,6 @@
 __pycache__/
 *.py[cod]
 .venv/
+zjb-projects
+.vscode
+uv.lock

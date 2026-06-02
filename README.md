@@ -1,6 +1,23 @@
-# What is Aita
-
 A cli tool running test against an API to see if it replies as expected.
+
+## Run as `aita` command
+
+This repo includes a launcher script at `bin/aita`.
+It always runs with the Python interpreter from `.venv` in the project root.
+
+Use it directly from the project root:
+
+```bash
+./bin/aita --help
+./bin/aita run tests/
+```
+
+If you want to type `aita` from this repo without `./bin/`, add `bin/` to your `PATH`:
+
+```bash
+export PATH="$(pwd)/bin:$PATH"
+aita --help
+```
 
 The assert for each round is done by an LLM who does a simple check: does the reponse meet the `fail-on` criteria? If it does, fail, otherwise pass.
 

@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Resolve symlinks so launchers in ~/.local/bin can point to this script.
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+while [[ -L "${SCRIPT_PATH}" ]]; do
+  LINK_DIR="$(cd -- "$(dirname -- "${SCRIPT_PATH}")" && pwd)"
+  LINK_TARGET="$(readlink -- "${SCRIPT_PATH}")"
+  if [[ "${LINK_TARGET}" = /* ]]; then
+    SCRIPT_PATH="${LINK_TARGET}"
+  else
+    SCRIPT_PATH="${LINK_DIR}/${LINK_TARGET}"
+  fi
+done
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${SCRIPT_PATH}")" && pwd)"
+PROJECT_ROOT_DEFAULT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
+PROJECT_ROOT="${AITA_PROJECT_ROOT:-${PROJECT_ROOT_DEFAULT}}"
+VENV_PYTHON="${PROJECT_ROOT}/.venv/bin/python"
+
+if [[ ! -x "${VENV_PYTHON}" ]]; then
+  echo "Missing executable Python in ${VENV_PYTHON}" >&2
+  echo "Create the virtual environment at ${PROJECT_ROOT}/.venv first." >&2
+  exit 127
+fi
+
+exec "${VENV_PYTHON}" -m aita "$@"

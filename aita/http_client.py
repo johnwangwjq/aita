@@ -6,7 +6,7 @@ from urllib.request import urlopen
 
 
 def build_endpoint_payload(input_text: str) -> dict[str, str]:
-    # Deferred extension point: replace with a project-specific payload mapping.
+    #TODO: Deferred extension point: replace with a project-specific payload mapping.
     return {"input": input_text}
 
 

@@ -9,6 +9,7 @@ description = "CLI tool for conversational API testing with LLM assertions"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+  "click>=8.1",
   "PyYAML>=6.0",
 ]
 
@@ -18,3 +19,9 @@ aita = "aita.cli:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["aita*"]
+
+[tool.uv]
+package = false
+
+[tool.uv.pip]
+only-binary = [":all:"]

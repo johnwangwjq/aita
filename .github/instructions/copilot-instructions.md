@@ -1,3 +1,4 @@
+ 
  # Rules on coding:
  1. use as less as possible dependencies in python
  2. follow the best practices of python
@@ -7,3 +8,5 @@
 
 
  Use the virtual environment `.venv` in the project root to manage dependencies and isolate the project environment.
+
+ run test: `python -m unittest discover tests/`

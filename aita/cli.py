@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import argparse
 from pathlib import Path
 from typing import Sequence
+
+import click
 
 from aita import exit_codes
 from aita.config import build_test_specs
@@ -21,33 +22,30 @@ from aita.report import format_summary
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = _build_parser()
-    args = parser.parse_args(argv)
-
-    if args.command == "run":
-        return _run_command(
-            target=Path(args.path),
-            dry_run=args.dry_run,
-            max_rounds=args.max_rounds,
-            timeout=args.timeout,
-            verbose=args.verbose,
-        )
-
-    raise ValueError(f"Unsupported command: {args.command}")
+    args = list(argv) if argv is not None else None
+    result = cli.main(args=args, prog_name="aita", standalone_mode=False)
+    return int(result)
 
 
-def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="aita")
-    subparsers = parser.add_subparsers(dest="command", required=True)
+@click.group()
+def cli() -> None:
+    """Aita command-line entrypoint."""
 
-    run_parser = subparsers.add_parser("run", help="Run one test file or a testsuite directory")
-    run_parser.add_argument("path")
-    run_parser.add_argument("--dry-run", action="store_true")
-    run_parser.add_argument("--max-rounds", type=int, default=None)
-    run_parser.add_argument("--timeout", type=int, default=30)
-    run_parser.add_argument("--verbose", action="store_true")
 
-    return parser
+@cli.command("run", help="Run one test file or a testsuite directory")
+@click.argument("path", type=click.Path(path_type=Path))
+@click.option("--dry-run", is_flag=True)
+@click.option("--max-rounds", type=int, default=None)
+@click.option("--timeout", type=int, default=30, show_default=True)
+@click.option("--verbose", is_flag=True)
+def run_command(path: Path, dry_run: bool, max_rounds: int | None, timeout: int, verbose: bool) -> int:
+    return _run_command(
+        target=path,
+        dry_run=dry_run,
+        max_rounds=max_rounds,
+        timeout=timeout,
+        verbose=verbose,
+    )
 
 
 def _run_command(
