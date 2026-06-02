@@ -21,7 +21,7 @@ For v1, each round always targets the top-level chat endpoint.
 
 If `identity` is defined in a testsuite `aita.yaml`, all tests in that suite share it.
 For `logged-in` mode, Aita reuses one authenticated runtime context per shared identity config
-within one `aita run` execution (login is not repeated per test case).
+within one `aita` execution (login is not repeated per test case).
 
 ### Deterministic assertions
 
@@ -88,7 +88,7 @@ Use it directly from the project root:
 
 ```bash
 ./bin/aita --help
-./bin/aita run tests/
+./bin/aita tests/
 ```
 
 If you want to type `aita` from this repo without `./bin/`, add `bin/` to your `PATH`:
@@ -96,6 +96,8 @@ If you want to type `aita` from this repo without `./bin/`, add `bin/` to your `
 ```bash
 export PATH="$(pwd)/bin:$PATH"
 aita --help
+aita foo bar/baz.yaml
+aita --all
 ```
 
 The assert for each round is done by an LLM who does a simple check: does the reponse meet the `fail-on` criteria? If it does, fail, otherwise pass.
@@ -189,4 +191,4 @@ Additional notes:
 1. Multiple test files can be grouped in one directory as a testsuite.
 2. A test file can contain multiple documents separated by `---`.
 3. If `rounds[].expected` is absent, that round skips LLM assertion.
-4. A global `aita.yaml` in current working directory root is required.
+4. A global `aita.yaml` in current working directory root is optional. When absent, Aita uses only testsuite/test-document config.

@@ -26,14 +26,15 @@ def load_dotenv(cwd: Path) -> None:
         return
 
     lines = dotenv_path.read_text(encoding="utf-8").splitlines()
-    for index, raw_line in enumerate(lines, start=1):
+    for raw_line in lines:
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
 
         match = _DOTENV_LINE_PATTERN.match(line)
         if match is None:
-            raise ValueError(f"Invalid .env line {index} in {dotenv_path}")
+            # Ignore unsupported shell syntax to keep .env loading best-effort.
+            continue
 
         key = match.group(1)
         value = _normalize_dotenv_value(match.group(2).strip())

@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Sequence
 
 import click
-from click.exceptions import NoArgsIsHelpError
 from click.exceptions import UsageError
 
 from aita import exit_codes
@@ -35,28 +34,36 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         result = cli.main(args=args, prog_name="aita", standalone_mode=False)
         return int(result)
-    except NoArgsIsHelpError as exc:
-        click.echo(exc.ctx.get_help())
-        return 0
     except UsageError as exc:
+        if exc.__class__.__name__ == "NoArgsIsHelpError" and getattr(exc, "ctx", None) is not None:
+            click.echo(exc.ctx.get_help())
+            return 0
+        click.echo(str(exc), err=True)
+        return 2
+    except Exception as exc:
         click.echo(str(exc), err=True)
         return 2
 
 
-@click.group()
-def cli() -> None:
-    """Aita command-line entrypoint."""
-
-
-@cli.command("run", help="Run one test file or a testsuite directory")
-@click.argument("path", type=click.Path(path_type=Path))
+@click.command(context_settings={"help_option_names": ["--help"]}, no_args_is_help=True)
+@click.argument("paths", nargs=-1, type=click.Path(path_type=Path))
+@click.option("--all", "run_all", is_flag=True, help="Run all testsuite directories in the current directory")
 @click.option("--dry-run", is_flag=True)
 @click.option("--max-rounds", type=int, default=None)
 @click.option("--timeout", type=int, default=30, show_default=True)
 @click.option("--verbose", is_flag=True)
-def run_command(path: Path, dry_run: bool, max_rounds: int | None, timeout: int, verbose: bool) -> int:
+def cli(
+    paths: tuple[Path, ...],
+    run_all: bool,
+    dry_run: bool,
+    max_rounds: int | None,
+    timeout: int,
+    verbose: bool,
+) -> int:
+    """Run one or more test files or testsuite directories."""
     return _run_command(
-        target=path,
+        targets=paths,
+        run_all=run_all,
         dry_run=dry_run,
         max_rounds=max_rounds,
         timeout=timeout,
@@ -65,7 +72,8 @@ def run_command(path: Path, dry_run: bool, max_rounds: int | None, timeout: int,
 
 
 def _run_command(
-    target: Path,
+    targets: Sequence[Path],
+    run_all: bool,
     dry_run: bool,
     max_rounds: int | None,
     timeout: int,
@@ -73,13 +81,19 @@ def _run_command(
 ) -> int:
     cwd = Path.cwd()
     load_dotenv(cwd)
-    global_config = require_global_config(cwd)
-    suite_config = load_suite_config(target)
-
+    global_config = require_global_config(cwd) if (cwd / "aita.yaml").exists() else {}
+    resolved_targets = _resolve_targets(cwd, targets, run_all)
     all_specs: list[TestSpec] = []
-    for test_file in discover_test_files(target):
-        docs = load_test_documents(test_file)
-        all_specs.extend(build_test_specs(test_file, docs, global_config, suite_config))
+    seen_test_files: set[Path] = set()
+    for target in resolved_targets:
+        suite_config = load_suite_config(target)
+        for test_file in discover_test_files(target):
+            test_file_key = test_file.resolve()
+            if test_file_key in seen_test_files:
+                continue
+            seen_test_files.add(test_file_key)
+            docs = load_test_documents(test_file)
+            all_specs.extend(build_test_specs(test_file, docs, global_config, suite_config))
 
     if dry_run:
         print(f"Validation successful. Tests discovered: {len(all_specs)}")
@@ -125,6 +139,26 @@ def _run_command(
     if summary.failed > 0:
         return exit_codes.FAIL
     return exit_codes.PASS
+
+
+def _resolve_targets(cwd: Path, targets: Sequence[Path], run_all: bool) -> tuple[Path, ...]:
+    if run_all and targets:
+        raise UsageError("Cannot combine --all with explicit paths")
+
+    if run_all:
+        suite_dirs = tuple(
+            child
+            for child in sorted(cwd.iterdir())
+            if child.is_dir() and bool(discover_test_files(child))
+        )
+        if not suite_dirs:
+            raise ValueError(f"No testsuite directories found in {cwd}")
+        return suite_dirs
+
+    if not targets:
+        raise UsageError("Provide one or more paths, or use --all")
+
+    return tuple(targets)
 
 
 def _run_single_test(
