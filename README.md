@@ -96,7 +96,7 @@ These deterministic checkes will run before LLM assertion. If they failed, LLM a
 - `asserter` - An object of the LLM service for asserting the `expected.output`. Required if there are LLM-asserting rounds
 - `asserter.url` - requied, e.g., "https://api.groq.com/openai/v1/chat/completions"
 - `asserter.api-key` - e.g., `${LLM_API_KEY}`
-- `asserter.<others>` - any other fields will be passed as-is to the LLM call.
+- `asserter.invoke-options` - an object for any other options the asserter supports, will be passed as-is to the LLM call.
 
 These configurations can live in multiple places, with override precedence as:
 
