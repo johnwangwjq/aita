@@ -1,6 +1,19 @@
 A cli tool running test against an AI assistant API to see if it replies as expected.
 The whole point is it relies on a LLM to assert the test output.
 
+Note:
+
+Currently aita assume an envelop json schema on the response of the API, as the following:
+
+```clojure
+{:answer "..."
+ :metadata {...}
+ :status {:kind :ok|:error :msg "..."?}
+ :session_id "..."?}
+```
+
+The `metadata` is freestyle custom object depend on the context.
+
 # Test organizing
 
 Aita organizes tests in test file and testsuites.
@@ -157,7 +170,7 @@ aita --all
 
 # Timeout behavior
 
-`--timeout` applies to all outbound HTTP calls:
+The commandline option `--timeout` applies to all outbound HTTP calls:
 
 1. login bootstrap request (`authentication`)
 2. target app chat endpoint call (each round)
