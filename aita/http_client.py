@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+from urllib.parse import urlparse
+from urllib.parse import urlunparse
 from urllib.request import HTTPCookieProcessor
 from urllib.request import build_opener
 from urllib.request import Request
@@ -67,12 +69,14 @@ def _build_payload(
 
 
 def run_auth_request(
+    endpoint: str,
     auth_request: AuthRequestSpec,
     timeout: int,
     context: RuntimeContext,
 ) -> EndpointResponse:
+    request_url = _resolve_auth_request_url(endpoint, auth_request.path)
     request = Request(
-        auth_request.endpoint,
+        request_url,
         data=json.dumps(auth_request.body).encode("utf-8"),
         headers={"Content-Type": "application/json", **auth_request.headers},
         method=auth_request.method,
@@ -85,6 +89,12 @@ def run_auth_request(
             status_code=response.getcode(),
             headers={key: value for key, value in response.headers.items()},
         )
+
+
+def _resolve_auth_request_url(endpoint: str, path: str) -> str:
+    parsed_endpoint = urlparse(endpoint)
+    resolved_path = path if path.startswith("/") else f"/{path}"
+    return urlunparse((parsed_endpoint.scheme, parsed_endpoint.netloc, resolved_path, "", "", ""))
 
 
 def _update_runtime_context(context: RuntimeContext, response: EndpointResponse) -> None:

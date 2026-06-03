@@ -28,24 +28,22 @@ asserter:
     top_p: 1
     max_tokens: 512
 
-# Identity modes:
-# - legacy: no auth/session automation
-# - anonymous: auto persist/reuse session_id in chat payloads
-# - logged-in: run auth-request bootstrap and reuse authenticated cookies
-identity:
-  mode: anonymous
+# Login/auth settings:
+# - login-required: false keeps the non-login chat flow
+# - authentication is ignored unless login-required is true
+login-required: false
 
-  # Required only when mode=logged-in.
-  # This request runs as login bootstrap before test rounds.
-  # If defined in testsuite aita.yaml, it is shared by all tests in that suite.
-  # auth-request:
-  #   endpoint: ${ZJB_WEB_BASE_URL}/api/login
-  #   method: POST
-  #   headers:
-  #     Content-Type: application/json
-  #   body:
-  #     email: ${ZJB_TEST_USER_EMAIL}
-  #     password: ${ZJB_TEST_USER_PASSWORD}
+# Required only when login-required=true.
+# The authentication request shares the same origin as endpoint; only the path is configured.
+# If defined in testsuite aita.yaml, it is shared by all tests in that suite.
+# authentication:
+#   path: /api/login
+#   method: POST
+#   headers:
+#     Content-Type: application/json
+#   body:
+#     email: ${ZJB_TEST_USER_EMAIL}
+#     password: ${ZJB_TEST_USER_PASSWORD}
 
 # Shell commands run before each test case in execution order.
 pre-test:

@@ -26,7 +26,7 @@ class RoundExpected:
 
 @dataclass(frozen=True)
 class AuthRequestSpec:
-    endpoint: str
+    path: str
     method: str
     headers: dict[str, str]
     body: dict[str, Any]
@@ -34,8 +34,8 @@ class AuthRequestSpec:
 
 @dataclass(frozen=True)
 class IdentityConfig:
-    mode: Literal["legacy", "anonymous", "logged-in"]
-    auth_request: AuthRequestSpec | None
+    login_required: bool
+    authentication: AuthRequestSpec | None
 
 
 @dataclass(frozen=True)

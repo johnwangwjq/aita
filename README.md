@@ -1,75 +1,130 @@
 A cli tool running test against an AI assistant API to see if it replies as expected.
 The whole point is it relies on a LLM to assert the test output.
 
-## Identity and auth (v1)
+# Test organizing
 
-Aita supports test-level identity modes for chat testing:
+Aita organizes tests in test file and testsuites.
 
-- `legacy`: old behavior (stateless requests, no automatic auth/session handling)
-- `anonymous`: auto-persist `session_id` from response JSON, and auto-send it on later rounds
-- `logged-in`: run an explicit auth bootstrap request before rounds, then reuse cookies for all rounds
+A test file is a yaml file for a single test(with multiple rounds).
+A testsuite is a directory storing one or more tests.
+Tests in the same testsuites share the same test configures, ie., the `aita.yaml`.
+A test can override parent(testsuites or top level) configures by having them directly in its yaml file.
 
-### YAML fields
+# Test yaml file
 
-New top-level test fields:
+A "test" is writen in a yaml file of its own, with following fields:
 
-- `identity.mode` (`legacy | anonymous | logged-in`)
-- `identity.auth-request` (required when mode is `logged-in`)
+- `name` - The name of the test used in test report
+- `pre-test` - shell script as pre test hook
+- `post-test` - shell script as post hook
+- `rounds` - list of round object for input ans expected
+- configuration - test environment setup options, e.g., `login-required`.
 
-For v1, each round always targets the top-level chat endpoint.
-`identity.auth-request` is only for login bootstrap before rounds.
+Example:
 
-If `identity` is defined in a testsuite `aita.yaml`, all tests in that suite share it.
-For `logged-in` mode, Aita reuses one authenticated runtime context per shared identity config
-within one `aita` execution (login is not repeated per test case).
+```yaml
+name: Unresolvable Alias
 
-### Deterministic assertions
+endpoint: http://ai.myapp.com/sales/   # Configure test target
+login-required: false                  # Configure login mode
+                                       
+pre-test:                              # 
+  - /script/init-db.sh                 # pre hook for DB data
+post-test:                             #
+  - /script/clean-db.sh                # post hook reset db
 
-Inside `rounds[].expected`, these deterministic checks run before LLM assertion:
+rounds:
+  - input: How to buy the new cool pants?
+    expected: 
+      status-code: 200
+      response: Which city are you?
+      fail-on: Didn't ask for the city
+  - input: LS
+    expected: 
+      response: >
+        Your reply is ambiguous,
+        please say the full name of the city
+      fail-on: Didn't acknowledge user the ambiguity
+  - input: I said "LZ"!
+    expected: 
+      response: Sorry, do you mean "LA"?
+```
 
+# Rounds
+
+A round is a request-response round on the target endpoint which is checked by aita.
+Each round has a required `input` for user intput text, and an optional `expected` object for the `asserter`(see later below) to check if the actual response is as the expected value. If `expected` is absent, aita will make the request but ignore the output, i.e., it will go to next round directly.
+
+`expected` object:
+
+- `response` - Optional text replied from the target enpoint for the input. LLM assertion will be skipped if this is absent
+- `fail-on`: The LLM prompt for checking if the response is expected
 - `status-code`: assert HTTP status code
 - `status-kind`: assert JSON `status.kind`
 - `has-session-id`: assert whether JSON `session_id` exists
 - `metadata-has`: assert listed keys exist in JSON `metadata`
 
-If `response` and `fail-on` are both omitted, Aita runs deterministic assertions only and skips LLM assertion.
+Note that `response + fail-on` is non-deterministic LLM assertion while all others are deterministic ones.
+These deterministic checkes will run before LLM assertion. If they failed, LLM assertion will never run.
 
-### Example: anonymous continuity
+# Configuration
 
+- `endpoint` - Required. The test target, e.g., `http://ai.myapp.com/sales/`
+- `login-required` - default false. When true, runs an explicit authentication bootstrap before rounds, then reuses cookies for all rounds.
+  The value of `login-required` is scoped. For example, if testsuite "tsA" is `login-required=true` and
+  "tsB" is `login-required=false`, an authentication process will be run to setup the login cookie for tsA
+  which will be share across all tests in tsA. But that is not the case for "tsB" - all the tests in tsB
+  will still be run in anonymous mode. Aita will seperate the login context for these two testsuites.
+- `authentication` - an object used for authentication bootstrap, required only when `login-required=true`.
+- `authentication.path` - default to `/api/login`, the path of login. shares the same origin as the target endpoint
+- `authentication. method` - default `POST`
+- `authentication.headers` - login headers passed to login path as-is, default `Content-Type: application/json`
+- `authentication.body` - body object of the login request, e.g., `{"email": "${TEST_USER_EMAIL}", "password": "${TEST_USER_PASSWORD}"}`
+- `asserter` - An object of the LLM service for asserting the `expected.output`. Required if there are LLM-asserting rounds
+- `asserter.url` - requied, e.g., "https://api.groq.com/openai/v1/chat/completions"
+- `asserter.api-key` - e.g., `${LLM_API_KEY}`
+- `asserter.<others>` - any other fields will be passed as-is to the LLM call.
+
+These configurations can live in multiple places, with override precedence as:
+
+- Test yaml file
+- the `aita.yaml` in the testsuite dir
+- the `aita.yaml` in the current dir, ie., the global configure
+
+
+# Test Examples
+
+## Example-1: LLM asserts reply
+
+`aita.yaml`:
 ```yaml
-name: anonymous chat keeps continuity
 endpoint: http://localhost:3000/api/chat
-identity:
-  mode: anonymous
+login-required: false
+```
+`anonymous-plan-1st-reply.yaml`:
+```yaml
+name: first reply for plan is asking for target country
 rounds:
   - input: 请帮我做留学规划
     expected:
-      status-code: 200
-      status-kind: ok
-      has-session-id: true
-      fail-on: 没有理解用户意图
-  - input: 我目标是英国硕士
-    expected:
-      status-code: 200
-      status-kind: ok
-      has-session-id: true
+      response: 请问您想去哪个国家？
+      fail-on: 没有询问用户想去哪个国家
 ```
 
-### Example: logged-in with bootstrap request
+## Example-2: deterministic assertion in logged-in mode
 
 ```yaml
 name: logged-in chat flow
 endpoint: http://localhost:3000/api/chat
-identity:
-  mode: logged-in
-  auth-request:
-    endpoint: http://localhost:3000/api/login
-    method: POST
-    headers:
-      Content-Type: application/json
-    body:
-      email: ${TEST_USER_EMAIL}
-      password: ${TEST_USER_PASSWORD}
+login-required: true
+authentication:
+  path: /api/login
+  method: POST
+  headers:
+    Content-Type: application/json
+  body:
+    email: ${TEST_USER_EMAIL}
+    password: ${TEST_USER_PASSWORD}
 rounds:
   - input: 帮我生成申请时间线
     expected:
@@ -79,7 +134,7 @@ rounds:
         - actions
 ```
 
-## Run as `aita` command
+# Run as `aita` command
 
 This repo includes a launcher script at `bin/aita`.
 It always runs with the Python interpreter from `.venv` in the project root.
@@ -100,7 +155,29 @@ aita foo bar/baz.yaml
 aita --all
 ```
 
-The assert for each round is done by an LLM who does a simple check: does the reponse meet the `fail-on` criteria? If it does, fail, otherwise pass.
+# Timeout behavior
+
+`--timeout` applies to all outbound HTTP calls:
+
+1. login bootstrap request (`authentication`)
+2. target app chat endpoint call (each round)
+3. LLM asserter call
+
+What happens on timeout:
+
+1. Round chat timeout or LLM timeout:
+  - current test is marked `ERRORED`
+  - remaining rounds in that test stop
+  - `post-test` hooks still run
+  - run continues to next test
+2. Login bootstrap timeout:
+  - run stops immediately with exit code `2`
+  - Aita prints the error message
+  - this happens before entering test rounds for that identity context
+
+Note: `--timeout` does not apply to shell hooks (`pre-test`/`post-test`).
+
+# Environment Variables
 
 Environment variables in YAML (`${VAR}`) are resolved from process env.
 At runtime, Aita also auto-loads `.env` from the current working directory root before parsing YAML.
@@ -150,45 +227,3 @@ LLM -->> Aita: failed
 ```
 
 The 3rd round won't run because test failed at round 2.
-
-# Configuration
-
-Refer to the root [aita.yaml](aita.yaml)
-
-Allowed keys in `aita.yaml` (global or testsuite):
-
-1. `endpoint`
-2. `asserter`
-3. `identity`
-4. `pre-test`
-5. `post-test`
-
-Allowed keys in test documents (for example `foo-test.yaml`):
-
-1. `name` (required)
-2. `rounds` (required)
-3. all keys in `aita.yaml` as optionals, to override
-
-Round-level keys:
-
-1. `input` (required)
-2. `expected` (optional)
-3. `expected.response` (optional)
-4. `expected.fail-on` (optional)
-5. `expected.status-code` (optional)
-6. `expected.status-kind` (optional)
-7. `expected.has-session-id` (optional)
-8. `expected.metadata-has` (optional)
-
-Override precedence is explicit:
-
-1. test document (for example `foo-test.yaml`)
-2. testsuite `aita.yaml`
-3. global `aita.yaml` at current working directory root
-
-Additional notes:
-
-1. Multiple test files can be grouped in one directory as a testsuite.
-2. A test file can contain multiple documents separated by `---`.
-3. If `rounds[].expected` is absent, that round skips LLM assertion.
-4. A global `aita.yaml` in current working directory root is optional. When absent, Aita uses only testsuite/test-document config.

@@ -18,7 +18,7 @@ class RunnerSemanticsTests(unittest.TestCase):
             name="x",
             endpoint="http://e",
             asserter=AsserterConfig(url="http://a", api_key="k", invoke_options={}),
-            identity=IdentityConfig(mode="legacy", auth_request=None),
+            identity=IdentityConfig(login_required=False, authentication=None),
             pre_test=(),
             post_test=(),
             rounds=(RoundSpec(input_text="hi", expected=None),),
@@ -41,7 +41,7 @@ class RunnerSemanticsTests(unittest.TestCase):
             name="x",
             endpoint="http://e",
             asserter=AsserterConfig(url="http://a", api_key="k", invoke_options={}),
-            identity=IdentityConfig(mode="legacy", auth_request=None),
+            identity=IdentityConfig(login_required=False, authentication=None),
             pre_test=(),
             post_test=(),
             rounds=(
@@ -87,9 +87,9 @@ class RunnerSemanticsTests(unittest.TestCase):
             endpoint="http://e",
             asserter=AsserterConfig(url="http://a", api_key="k", invoke_options={}),
             identity=IdentityConfig(
-                mode="logged-in",
-                auth_request=AuthRequestSpec(
-                    endpoint="http://e/login",
+                login_required=True,
+                authentication=AuthRequestSpec(
+                    path="/login",
                     method="POST",
                     headers={},
                     body={"username": "u", "password": "p"},
@@ -118,7 +118,7 @@ class RunnerSemanticsTests(unittest.TestCase):
             name="x",
             endpoint="http://e",
             asserter=AsserterConfig(url="http://a", api_key="k", invoke_options={}),
-            identity=IdentityConfig(mode="legacy", auth_request=None),
+            identity=IdentityConfig(login_required=False, authentication=None),
             pre_test=(),
             post_test=(),
             rounds=(

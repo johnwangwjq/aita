@@ -12,34 +12,34 @@ from aita.config import require_global_config
 
 
 class ConfigTests(unittest.TestCase):
-  def test_load_dotenv_populates_missing_env_vars(self) -> None:
-    with tempfile.TemporaryDirectory() as temp_dir:
-      root = Path(temp_dir)
-      (root / ".env").write_text(
-        """
+    def test_load_dotenv_populates_missing_env_vars(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / ".env").write_text(
+                """
 TEST_KEY=dotenv-value
 QUOTED='quoted value'
 """.strip()
-        + "\n",
-        encoding="utf-8",
-      )
+                + "\n",
+                encoding="utf-8",
+            )
 
-      os.environ.pop("TEST_KEY", None)
-      os.environ.pop("QUOTED", None)
-      load_dotenv(root)
+            os.environ.pop("TEST_KEY", None)
+            os.environ.pop("QUOTED", None)
+            load_dotenv(root)
 
-      self.assertEqual(os.environ["TEST_KEY"], "dotenv-value")
-      self.assertEqual(os.environ["QUOTED"], "quoted value")
+            self.assertEqual(os.environ["TEST_KEY"], "dotenv-value")
+            self.assertEqual(os.environ["QUOTED"], "quoted value")
 
-  def test_load_dotenv_does_not_override_existing_env(self) -> None:
-    with tempfile.TemporaryDirectory() as temp_dir:
-      root = Path(temp_dir)
-      (root / ".env").write_text("TEST_KEY=dotenv-value\n", encoding="utf-8")
+    def test_load_dotenv_does_not_override_existing_env(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / ".env").write_text("TEST_KEY=dotenv-value\n", encoding="utf-8")
 
-      os.environ["TEST_KEY"] = "already-set"
-      load_dotenv(root)
+            os.environ["TEST_KEY"] = "already-set"
+            load_dotenv(root)
 
-      self.assertEqual(os.environ["TEST_KEY"], "already-set")
+            self.assertEqual(os.environ["TEST_KEY"], "already-set")
 
     def test_global_config_required(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -147,23 +147,22 @@ rounds:
                 },
             )
 
-    def test_identity_auth_request_parsing(self) -> None:
+    def test_login_required_authentication_parsing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             test_file = root / "suite.yaml"
             test_file.write_text(
                 """
 name: auth-chat
-identity:
-  mode: logged-in
-  auth-request:
-    endpoint: http://app.local/api/login
-    method: POST
-    headers:
-      Content-Type: application/json
-    body:
-      username: ${TEST_USER}
-      password: ${TEST_PASS}
+login-required: true
+authentication:
+  path: /api/login
+  method: POST
+  headers:
+    Content-Type: application/json
+  body:
+    username: ${TEST_USER}
+    password: ${TEST_PASS}
 rounds:
   - input: hi
 """.strip()
@@ -180,9 +179,9 @@ rounds:
             }
 
             spec = build_test_specs(test_file, docs, global_config, {})[0]
-            self.assertEqual(spec.identity.mode, "logged-in")
-            self.assertEqual(spec.identity.auth_request.endpoint, "http://app.local/api/login")
-            self.assertEqual(spec.identity.auth_request.body["username"], "john")
+            self.assertTrue(spec.identity.login_required)
+            self.assertEqual(spec.identity.authentication.path, "/api/login")
+            self.assertEqual(spec.identity.authentication.body["username"], "john")
 
     def test_parses_deterministic_expected_fields(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -191,8 +190,6 @@ rounds:
             test_file.write_text(
                 """
 name: deterministic
-identity:
-  mode: anonymous
 rounds:
   - input: hello
     expected:
@@ -218,15 +215,14 @@ rounds:
             self.assertFalse(expected.has_session_id)
             self.assertEqual(expected.metadata_has, ("messages",))
 
-    def test_logged_in_requires_auth_request(self) -> None:
+    def test_login_required_without_authentication_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             test_file = root / "suite.yaml"
             test_file.write_text(
                 """
 name: invalid
-identity:
-  mode: logged-in
+login-required: true
 rounds:
   - input: hi
 """.strip()

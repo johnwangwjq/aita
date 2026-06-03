@@ -47,10 +47,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 @click.command(context_settings={"help_option_names": ["--help"]}, no_args_is_help=True)
 @click.argument("paths", nargs=-1, type=click.Path(path_type=Path))
-@click.option("--all", "run_all", is_flag=True, help="Run all testsuite directories in the current directory")
+@click.option(
+    "--all", "run_all", is_flag=True,
+    help="Run all testsuite directories in the current directory")
 @click.option("--dry-run", is_flag=True)
 @click.option("--max-rounds", type=int, default=None)
-@click.option("--timeout", type=int, default=30, show_default=True)
+@click.option(
+    "--timeout", type=int, default=30, show_default=True,
+    help="the timeout on all outbound http calls in seconds")
 @click.option("--verbose", is_flag=True)
 def cli(
     paths: tuple[Path, ...],
@@ -105,15 +109,16 @@ def _run_command(
         runtime_context: RuntimeContext | None = None
         perform_login_bootstrap = True
 
-        if spec.identity.mode == "logged-in":
+        if spec.identity.login_required:
             cache_key = _build_logged_in_cache_key(spec)
             runtime_context = logged_in_context_cache.get(cache_key)
             if runtime_context is None:
-                runtime_context = create_runtime_context(spec.identity.mode)
-                if spec.identity.auth_request is None:
-                    raise ValueError("identity.auth-request is required when identity.mode is logged-in")
+                runtime_context = create_runtime_context("logged-in")
+                if spec.identity.authentication is None:
+                    raise ValueError("authentication is required when login-required is true")
                 run_auth_request(
-                    auth_request=spec.identity.auth_request,
+                    endpoint=spec.endpoint,
+                    auth_request=spec.identity.authentication,
                     timeout=timeout,
                     context=runtime_context,
                 )
@@ -174,16 +179,17 @@ def _run_single_test(
     failure_reason: str | None = None
     errored = False
     if runtime_context is None:
-        runtime_context = create_runtime_context(spec.identity.mode)
+        runtime_context = create_runtime_context("logged-in" if spec.identity.login_required else "anonymous")
 
     try:
         run_hooks(spec.pre_test, cwd=Path.cwd())
 
-        if spec.identity.mode == "logged-in" and perform_login_bootstrap:
-            if spec.identity.auth_request is None:
-                raise ValueError("identity.auth-request is required when identity.mode is logged-in")
+        if spec.identity.login_required and perform_login_bootstrap:
+            if spec.identity.authentication is None:
+                raise ValueError("authentication is required when login-required is true")
             run_auth_request(
-                auth_request=spec.identity.auth_request,
+                endpoint=spec.endpoint,
+                auth_request=spec.identity.authentication,
                 timeout=timeout,
                 context=runtime_context,
             )
@@ -297,14 +303,14 @@ def _run_single_test(
 
 
 def _build_logged_in_cache_key(spec: TestSpec) -> str:
-    auth = spec.identity.auth_request
+    auth = spec.identity.authentication
     if auth is None:
-        raise ValueError("identity.auth-request is required when identity.mode is logged-in")
+        raise ValueError("authentication is required when login-required is true")
 
     payload = {
-        "mode": spec.identity.mode,
+        "login_required": spec.identity.login_required,
         "endpoint": spec.endpoint,
-        "auth_endpoint": auth.endpoint,
+        "auth_path": auth.path,
         "auth_method": auth.method,
         "auth_headers": auth.headers,
         "auth_body": auth.body,

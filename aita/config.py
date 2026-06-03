@@ -17,7 +17,7 @@ from aita.models import TestSpec
 
 _ENV_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 _DOTENV_LINE_PATTERN = re.compile(r"^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$")
-_SHARED_KEYS = ("endpoint", "asserter", "identity", "pre-test", "post-test")
+_SHARED_KEYS = ("endpoint", "asserter", "login-required", "authentication", "pre-test", "post-test")
 
 
 def load_dotenv(cwd: Path) -> None:
@@ -188,7 +188,7 @@ def _to_test_spec(data: dict[str, Any], source_file: Path, doc_index: int) -> Te
 
     pre_test = _to_string_tuple(data.get("pre-test", []), source_file, doc_index, "pre-test")
     post_test = _to_string_tuple(data.get("post-test", []), source_file, doc_index, "post-test")
-    identity = _parse_identity(data.get("identity", {}), source_file, doc_index)
+    identity = _parse_identity(data, source_file, doc_index)
 
     rounds: list[RoundSpec] = []
     for round_index, round_obj in enumerate(rounds_obj, start=1):
@@ -270,30 +270,32 @@ def _to_string_tuple(
     return tuple(value)
 
 
-def _parse_identity(value: Any, source_file: Path, doc_index: int) -> IdentityConfig:
-    if value is None:
-        value = {}
-    if not isinstance(value, dict):
-        raise ValueError(_key_error(source_file, doc_index, "identity"))
+def _parse_identity(value: dict[str, Any], source_file: Path, doc_index: int) -> IdentityConfig:
+    login_required = _parse_login_required(value.get("login-required"), source_file, doc_index)
+    if not login_required:
+        return IdentityConfig(login_required=False, authentication=None)
 
-    mode_obj = value.get("mode", "legacy")
-    if mode_obj not in {"legacy", "anonymous", "logged-in"}:
-        raise ValueError(_key_error(source_file, doc_index, "identity.mode"))
-    mode = str(mode_obj)
-
-    auth_request = _parse_auth_request(
-        value.get("auth-request"),
+    authentication = _parse_authentication(
+        value.get("authentication"),
         source_file,
         doc_index,
-        "identity.auth-request",
+        "authentication",
     )
-    if mode == "logged-in" and auth_request is None:
-        raise ValueError(_key_error(source_file, doc_index, "identity.auth-request"))
+    if authentication is None:
+        raise ValueError(_key_error(source_file, doc_index, "authentication"))
 
-    return IdentityConfig(mode=mode, auth_request=auth_request)
+    return IdentityConfig(login_required=True, authentication=authentication)
 
 
-def _parse_auth_request(
+def _parse_login_required(value: Any, source_file: Path, doc_index: int) -> bool:
+    if value is None:
+        return False
+    if not isinstance(value, bool):
+        raise ValueError(_key_error(source_file, doc_index, "login-required"))
+    return value
+
+
+def _parse_authentication(
     value: Any,
     source_file: Path,
     doc_index: int,
@@ -304,12 +306,9 @@ def _parse_auth_request(
     if not isinstance(value, dict):
         raise ValueError(_key_error(source_file, doc_index, key))
 
-    endpoint = value.get("endpoint")
-    if not isinstance(endpoint, str) or not endpoint:
-        raise ValueError(_key_error(source_file, doc_index, f"{key}.endpoint"))
-    parsed_endpoint = urlparse(endpoint)
-    if not parsed_endpoint.scheme or not parsed_endpoint.netloc:
-        raise ValueError(_key_error(source_file, doc_index, f"{key}.endpoint must be an absolute URL"))
+    path = value.get("path", "/api/login")
+    if not isinstance(path, str) or not path:
+        raise ValueError(_key_error(source_file, doc_index, f"{key}.path"))
 
     method_obj = value.get("method", "POST")
     if not isinstance(method_obj, str) or not method_obj:
@@ -325,7 +324,7 @@ def _parse_auth_request(
         raise ValueError(_key_error(source_file, doc_index, f"{key}.body"))
 
     return AuthRequestSpec(
-        endpoint=endpoint,
+        path=path,
         method=method,
         headers=headers,
         body=body,

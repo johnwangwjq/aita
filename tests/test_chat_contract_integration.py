@@ -89,7 +89,7 @@ class ContractIntegrationTests(unittest.TestCase):
             name="anon-flow",
             endpoint=self.chat_endpoint,
             asserter=AsserterConfig(url="http://unused", api_key="unused", invoke_options={}),
-            identity=IdentityConfig(mode="anonymous", auth_request=None),
+            identity=IdentityConfig(login_required=False, authentication=None),
             pre_test=(),
             post_test=(),
             rounds=(
@@ -131,9 +131,9 @@ class ContractIntegrationTests(unittest.TestCase):
             endpoint=self.chat_endpoint,
             asserter=AsserterConfig(url="http://unused", api_key="unused", invoke_options={}),
             identity=IdentityConfig(
-                mode="logged-in",
-                auth_request=AuthRequestSpec(
-                    endpoint=self.login_endpoint,
+                login_required=True,
+                authentication=AuthRequestSpec(
+                    path="/api/login",
                     method="POST",
                     headers={"Content-Type": "application/json"},
                     body={"email": "u", "password": "p"},
