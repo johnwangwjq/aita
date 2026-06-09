@@ -66,21 +66,3 @@ post-test:
 # rounds[].expected.status-kind: optional deterministic JSON status.kind check
 # rounds[].expected.has-session-id: optional deterministic session_id presence check
 # rounds[].expected.metadata-has: optional deterministic metadata key checks
-
-# Example test document:
-# ---
-# name: anonymous planning continuity
-# identity:
-#   mode: anonymous
-# rounds:
-#   - input: 我想申请英国计算机硕士，帮我做规划
-#     expected:
-#       status-code: 200
-#       status-kind: ok
-#       has-session-id: true
-#       fail-on: 没有理解用户意图
-#   - input: 我的目标是 2027 秋季入学
-#     expected:
-#       status-code: 200
-#       status-kind: ok
-#       has-session-id: true

@@ -49,7 +49,6 @@ post-test:                             #
 rounds:
   - input: How to buy the new cool pants?
     expected: 
-      status-code: 200
       response: Which city are you?
       fail-on: Didn't ask for the city
   - input: LS
@@ -72,8 +71,8 @@ Each round has a required `input` for user intput text, and an optional `expecte
 
 - `response` - Optional text replied from the target enpoint for the input. LLM assertion will be skipped if this is absent
 - `fail-on`: The LLM prompt for checking if the response is expected
-- `status-code`: assert HTTP status code
-- `status-kind`: assert JSON `status.kind`
+- `status-code`: assert HTTP status code. Defaults to `200` when `expected` is present.
+- `status-kind`: assert JSON `status.kind`. Defaults to `"ok"` when `expected` is present.
 - `has-session-id`: assert whether JSON `session_id` exists
 - `metadata-has`: assert listed keys exist in JSON `metadata`
 
@@ -141,8 +140,6 @@ authentication:
 rounds:
   - input: 帮我生成申请时间线
     expected:
-      status-code: 200
-      status-kind: ok
       metadata-has:
         - actions
 ```

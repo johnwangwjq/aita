@@ -230,8 +230,8 @@ def _to_test_spec(data: dict[str, Any], source_file: Path, doc_index: int) -> Te
             expected = RoundExpected(
                 response=response,
                 fail_on=fail_on,
-                status_code=status_code,
-                status_kind=status_kind,
+                status_code=status_code if status_code is not None else 200,
+                status_kind=status_kind if status_kind is not None else "ok",
                 has_session_id=has_session_id,
                 metadata_has=metadata_has_tuple,
             )
