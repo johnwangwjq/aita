@@ -286,8 +286,6 @@ def _run_single_test(
                 break
 
             if not should_run_llm_assertion(round_spec.expected):
-                if verbose:
-                    print(f"[{spec.name}] round {index}: deterministic assertions passed")
                 round_results.append(
                     RoundResult(
                         index=index,
