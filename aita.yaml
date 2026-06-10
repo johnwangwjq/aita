@@ -40,7 +40,7 @@ login-required: false
 #   path: /api/login
 #   method: POST
 #   headers:
-#     Content-Type: application/x-www-form-urlencoded   # default; use application/json for JSON login
+#     Content-Type: application/x-www-form-urlencoded   # default as form post. Use application/json for JSON login
 #   body:
 #     email: ${ZJB_TEST_USER_EMAIL}
 #     password: ${ZJB_TEST_USER_PASSWORD}
