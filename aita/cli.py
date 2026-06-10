@@ -299,7 +299,7 @@ def _run_single_test(
             )
 
             if verbose:
-                print(f"[{spec.name}] round {index}: assertion={assertion_passed}")
+                print(f"[{spec.name}] round {index}: assertion passed={assertion_passed}")
 
             if not assertion_passed:
                 failure_reason = assertion_reason or "Assertion failed"
