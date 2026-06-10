@@ -74,6 +74,7 @@ def run_auth_request(
     auth_request: AuthRequestSpec,
     timeout: int,
     context: RuntimeContext,
+    verbose: bool,
 ) -> EndpointResponse:
     request_url = _resolve_auth_request_url(endpoint, auth_request.path)
     effective_headers = {"Content-Type": "application/x-www-form-urlencoded", **auth_request.headers}
@@ -85,6 +86,10 @@ def run_auth_request(
         headers=effective_headers,
         method=auth_request.method,
     )
+    
+    if verbose:
+        print(f"Loging {auth_request.method} to '{request_url}' with data '{request_body}'")
+
     with context.opener.open(request, timeout=timeout) as response:
         response_bytes = response.read()
         body = response_bytes.decode("utf-8")

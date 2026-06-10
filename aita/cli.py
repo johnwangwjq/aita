@@ -137,6 +137,7 @@ def _run_command(
                             auth_request=spec.identity.authentication,
                             timeout=timeout,
                             context=runtime_context,
+                            verbose=verbose,
                         )
                         logged_in_context_cache[cache_key] = runtime_context
                     perform_login_bootstrap = False
@@ -232,6 +233,7 @@ def _run_single_test(
                 auth_request=spec.identity.authentication,
                 timeout=timeout,
                 context=runtime_context,
+                verbose=verbose,
             )
 
         for index, round_spec in enumerate(spec.rounds, start=1):
