@@ -286,6 +286,7 @@ def _run_single_test(
                 break
 
             if not should_run_llm_assertion(round_spec.expected):
+                if verbose: print(f"    Deterministic passed")
                 round_results.append(
                     RoundResult(
                         index=index,
@@ -306,8 +307,7 @@ def _run_single_test(
                 timeout=timeout,
             )
 
-            if verbose:
-                print(f"[{spec.name}] round {index}: LLM assertion passed={assertion_passed}")
+            if verbose: print(f"    LLM {'passed' if assertion_passed else 'failed'}")
 
             if not assertion_passed:
                 failure_reason = assertion_reason or "Assertion failed"
