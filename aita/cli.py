@@ -57,6 +57,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     "--timeout", type=int, default=30, show_default=True,
     help="the timeout on all outbound http calls in seconds")
 @click.option("--verbose", is_flag=True)
+@click.option("--quiet-hooks", is_flag=True, help="Suppress hook output; shown only on failure")
 def cli(
     paths: tuple[Path, ...],
     run_all: bool,
@@ -64,6 +65,7 @@ def cli(
     max_rounds: int | None,
     timeout: int,
     verbose: bool,
+    quiet_hooks: bool,
 ) -> int:
     """Run one or more test files or testsuite directories."""
     return _run_command(
@@ -73,6 +75,7 @@ def cli(
         max_rounds=max_rounds,
         timeout=timeout,
         verbose=verbose,
+        quiet_hooks=quiet_hooks,
     )
 
 
@@ -83,6 +86,7 @@ def _run_command(
     max_rounds: int | None,
     timeout: int,
     verbose: bool,
+    quiet_hooks: bool = False,
 ) -> int:
     cwd = Path.cwd()
     load_dotenv(cwd)
@@ -114,7 +118,7 @@ def _run_command(
     results: list[TestResult] = []
     logged_in_context_cache: dict[str, RuntimeContext] = {}
     for suite_dir, suite_pre, suite_post, specs in suite_groups:
-        run_hooks(suite_pre, cwd=suite_dir.resolve())
+        run_hooks(suite_pre, cwd=suite_dir.resolve(), quiet=quiet_hooks)
         try:
             for spec in specs:
                 runtime_context: RuntimeContext | None = None
@@ -142,12 +146,13 @@ def _run_command(
                         max_rounds=max_rounds,
                         timeout=timeout,
                         verbose=verbose,
+                        quiet_hooks=quiet_hooks,
                         runtime_context=runtime_context,
                         perform_login_bootstrap=perform_login_bootstrap,
                     )
                 )
         finally:
-            run_hooks(suite_post, cwd=suite_dir.resolve())
+            run_hooks(suite_post, cwd=suite_dir.resolve(), quiet=quiet_hooks)
 
     summary = build_summary(results)
     print(format_summary(summary))
@@ -184,6 +189,7 @@ def _run_single_test(
     max_rounds: int | None,
     timeout: int,
     verbose: bool,
+    quiet_hooks: bool = False,
     runtime_context: RuntimeContext | None = None,
     perform_login_bootstrap: bool = True,
 ) -> TestResult:
@@ -195,7 +201,7 @@ def _run_single_test(
         runtime_context = create_runtime_context("logged-in" if spec.identity.login_required else "anonymous")
 
     try:
-        run_hooks(spec.pre_test, cwd=Path(spec.source_file).resolve().parent)
+        run_hooks(spec.pre_test, cwd=Path(spec.source_file).resolve().parent, quiet=quiet_hooks)
 
         if spec.identity.login_required and perform_login_bootstrap:
             if spec.identity.authentication is None:
@@ -300,7 +306,7 @@ def _run_single_test(
         errored = True
         failure_reason = str(exc)
     finally:
-        run_hooks(spec.post_test, cwd=Path(spec.source_file).resolve().parent)
+        run_hooks(spec.post_test, cwd=Path(spec.source_file).resolve().parent, quiet=quiet_hooks)
 
     passed = not errored and failure_reason is None
     return TestResult(

@@ -157,15 +157,15 @@ rounds:
 
             suite_dir = suite.resolve()
             # Suite hooks called exactly once each (wrapping both tests)
-            hooks_mock.assert_any_call(("echo suite-pre",), cwd=suite_dir)
-            hooks_mock.assert_any_call(("echo suite-post",), cwd=suite_dir)
-            suite_pre_calls = [c for c in hooks_mock.call_args_list if c == call(("echo suite-pre",), cwd=suite_dir)]
-            suite_post_calls = [c for c in hooks_mock.call_args_list if c == call(("echo suite-post",), cwd=suite_dir)]
+            hooks_mock.assert_any_call(("echo suite-pre",), cwd=suite_dir, quiet=False)
+            hooks_mock.assert_any_call(("echo suite-post",), cwd=suite_dir, quiet=False)
+            suite_pre_calls = [c for c in hooks_mock.call_args_list if c == call(("echo suite-pre",), cwd=suite_dir, quiet=False)]
+            suite_post_calls = [c for c in hooks_mock.call_args_list if c == call(("echo suite-post",), cwd=suite_dir, quiet=False)]
             self.assertEqual(len(suite_pre_calls), 1)
             self.assertEqual(len(suite_post_calls), 1)
             # Per-test hook for t1 called once (only t1 defines it)
             t1_cwd = (suite / "t1.yaml").resolve().parent
-            per_test_pre_calls = [c for c in hooks_mock.call_args_list if c == call(("echo per-test-pre",), cwd=t1_cwd)]
+            per_test_pre_calls = [c for c in hooks_mock.call_args_list if c == call(("echo per-test-pre",), cwd=t1_cwd, quiet=False)]
             self.assertEqual(len(per_test_pre_calls), 1)
 
 

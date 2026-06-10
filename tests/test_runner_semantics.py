@@ -169,8 +169,8 @@ class RunnerSemanticsTests(unittest.TestCase):
                 _run_single_test(spec, max_rounds=None, timeout=5, verbose=False)
 
         expected_cwd = Path(source_file).resolve().parent
-        hooks_mock.assert_any_call(("echo pre",), cwd=expected_cwd)
-        hooks_mock.assert_any_call(("echo post",), cwd=expected_cwd)
+        hooks_mock.assert_any_call(("echo pre",), cwd=expected_cwd, quiet=False)
+        hooks_mock.assert_any_call(("echo post",), cwd=expected_cwd, quiet=False)
 
 
 if __name__ == "__main__":
