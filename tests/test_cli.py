@@ -7,7 +7,61 @@ from pathlib import Path
 from unittest.mock import call
 from unittest.mock import patch
 
+from aita.cli import _find_project_root
 from aita.cli import main
+
+
+class FindProjectRootTests(unittest.TestCase):
+    def test_finds_aita_yaml_in_target_parent(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "aita.yaml").write_text("", encoding="utf-8")
+            suite = root / "suite"
+            suite.mkdir()
+            # suite has its own aita.yaml — should NOT be returned, root should be
+            (suite / "aita.yaml").write_text("", encoding="utf-8")
+            self.assertEqual(_find_project_root(root, (suite,)), root)
+
+    def test_walks_up_to_find_aita_yaml(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "aita.yaml").write_text("", encoding="utf-8")
+            suite = root / "a" / "b"
+            suite.mkdir(parents=True)
+            self.assertEqual(_find_project_root(root, (suite,)), root)
+
+    def test_falls_back_to_cwd_when_no_aita_yaml_found(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cwd = Path(temp_dir)
+            suite = cwd / "suite"
+            suite.mkdir()
+            self.assertEqual(_find_project_root(cwd, (suite,)), cwd)
+
+    def test_dotenv_loaded_from_project_root_not_cwd(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "aita.yaml").write_text(
+                "endpoint: http://e\nasserter:\n  url: http://a\n  api-key: k\n",
+                encoding="utf-8",
+            )
+            (root / ".env").write_text("DOTENV_ROOT_VAR=from-root\n", encoding="utf-8")
+
+            suite = root / "suite"
+            suite.mkdir()
+            # launch cwd is different from project root
+            launch_cwd = Path(temp_dir) / "elsewhere"
+            launch_cwd.mkdir()
+            (launch_cwd / ".env").write_text("DOTENV_ROOT_VAR=from-cwd\n", encoding="utf-8")
+            (suite / "case.yaml").write_text(
+                "name: x\nrounds:\n  - input: hi\n", encoding="utf-8"
+            )
+
+            os.environ.pop("DOTENV_ROOT_VAR", None)
+            with patch("pathlib.Path.cwd", return_value=launch_cwd):
+                main([str(suite), "--dry-run"])
+
+            self.assertEqual(os.environ.get("DOTENV_ROOT_VAR"), "from-root")
+            os.environ.pop("DOTENV_ROOT_VAR", None)
 
 
 class CliTests(unittest.TestCase):

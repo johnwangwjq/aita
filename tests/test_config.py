@@ -9,6 +9,7 @@ from aita.config import build_test_specs
 from aita.config import get_suite_hooks
 from aita.config import load_dotenv
 from aita.config import load_test_documents
+from aita.config import merge_configs
 from aita.config import require_global_config
 
 
@@ -288,6 +289,37 @@ rounds:
 
             specs = build_test_specs(test_file, docs, global_config, suite_config)
             self.assertEqual(specs[0].pre_test, ("echo test-pre",))
+
+    def test_authentication_deep_merge_preserves_unoverridden_keys(self) -> None:
+        global_config = {
+            "authentication": {
+                "path": "/api/login",
+                "method": "POST",
+                "headers": {"Content-Type": "application/json"},
+            }
+        }
+        suite_config = {
+            "authentication": {
+                "headers": {"Content-Type": "text/html"},
+            }
+        }
+        merged = merge_configs(global_config, suite_config, {})
+        auth = merged["authentication"]
+        self.assertEqual(auth["path"], "/api/login")  # preserved from global
+        self.assertEqual(auth["method"], "POST")  # preserved from global
+        self.assertEqual(auth["headers"]["Content-Type"], "text/html")  # overridden by suite
+
+    def test_authentication_test_level_overrides_suite(self) -> None:
+        global_config = {"authentication": {"path": "/api/login", "method": "POST"}}
+        suite_config = {"authentication": {"path": "/suite/login"}}
+        test_doc = {"authentication": {"path": "/test/login"}}
+        merged = merge_configs(global_config, suite_config, test_doc)
+        self.assertEqual(merged["authentication"]["path"], "/test/login")
+        self.assertEqual(merged["authentication"]["method"], "POST")  # from global
+
+    def test_authentication_absent_everywhere_produces_no_key(self) -> None:
+        merged = merge_configs({}, {}, {})
+        self.assertNotIn("authentication", merged)
 
 
 if __name__ == "__main__":

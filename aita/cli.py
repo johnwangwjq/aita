@@ -89,9 +89,10 @@ def _run_command(
     quiet_hooks: bool = False,
 ) -> int:
     cwd = Path.cwd()
-    load_dotenv(cwd)
-    global_config = require_global_config(cwd) if (cwd / "aita.yaml").exists() else {}
     resolved_targets = _resolve_targets(cwd, targets, run_all)
+    project_root = _find_project_root(cwd, resolved_targets)
+    load_dotenv(project_root)
+    global_config = require_global_config(project_root) if (project_root / "aita.yaml").exists() else {}
 
     # Build per-target groups: (target, suite_dir, suite_hooks, specs)
     suite_groups: list[tuple[Path, tuple[str, ...], tuple[str, ...], list[TestSpec]]] = []
@@ -182,6 +183,26 @@ def _resolve_targets(cwd: Path, targets: Sequence[Path], run_all: bool) -> tuple
         raise UsageError("Provide one or more paths, or use --all")
 
     return tuple(targets)
+
+
+def _find_project_root(cwd: Path, resolved_targets: tuple[Path, ...]) -> Path:
+    """Return the directory containing the global aita.yaml.
+
+    Walks up from the parent of the first target to find aita.yaml,
+    falling back to cwd.
+    """
+    anchor = resolved_targets[0].resolve() if resolved_targets else cwd
+    # Start from the parent so the target's own aita.yaml (suite config) is not confused
+    # with the global project aita.yaml.
+    candidate = anchor.parent if anchor.is_dir() else anchor.parent
+    while True:
+        if (candidate / "aita.yaml").exists():
+            return candidate
+        parent = candidate.parent
+        if parent == candidate:
+            break
+        candidate = parent
+    return cwd
 
 
 def _run_single_test(

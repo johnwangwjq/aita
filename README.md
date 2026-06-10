@@ -114,6 +114,37 @@ These configurations can live in multiple places, with override precedence as:
 - the `aita.yaml` in the testsuite dir
 - the `aita.yaml` in the current dir, ie., the global configure
 
+## Merge strategy
+
+Different keys use different merge strategies across the three levels:
+
+| Key | Strategy |
+|---|---|
+| `endpoint` | Last-wins: test > suite > global |
+| `login-required` | Last-wins: test > suite > global |
+| `asserter` | Deep merge: sub-keys are merged individually across all three levels; `invoke-options` entries are shallow-merged (lower level sets the base, higher levels override individual keys) |
+| `authentication` | Deep merge: sub-keys (`path`, `method`, `body`) use last-wins; `headers` entries are shallow-merged |
+| `pre-test` / `post-test` | Not merged. Suite/global hooks are suite-level (run once per suite). Per-test hooks come exclusively from the test file and never inherit from parent configs. |
+
+**Example — `authentication` deep merge:**
+
+`aita.yaml` (global):
+```yaml
+authentication:
+  path: /api/login
+  headers:
+    Content-Type: application/json
+```
+`suite/aita.yaml`:
+```yaml
+authentication:
+  headers:
+    Content-Type: text/html
+```
+Effective result: `path: /api/login` is preserved from global; `Content-Type` is overridden to `text/html` by the suite.
+
+**Note on `.env`:** Aita loads `.env` from the project root — the nearest ancestor directory containing a global `aita.yaml`, found by walking up from the first target path. This is independent of the directory from which the `aita` command is launched.
+
 
 # Test Examples
 

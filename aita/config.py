@@ -17,7 +17,7 @@ from aita.models import TestSpec
 
 _ENV_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 _DOTENV_LINE_PATTERN = re.compile(r"^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$")
-_SHARED_KEYS = ("endpoint", "asserter", "login-required", "authentication")
+_SHARED_KEYS = ("endpoint", "login-required")
 
 
 def load_dotenv(cwd: Path) -> None:
@@ -124,9 +124,15 @@ def merge_configs(
     if merged_asserter is not None:
         merged["asserter"] = merged_asserter
 
+    merged_authentication = _merge_authentication_configs(
+        global_config.get("authentication"),
+        suite_config.get("authentication"),
+        test_document.get("authentication"),
+    )
+    if merged_authentication is not None:
+        merged["authentication"] = merged_authentication
+
     for key in _SHARED_KEYS:
-        if key == "asserter":
-            continue
         if key in test_document:
             continue
         if key in suite_config:
@@ -134,6 +140,37 @@ def merge_configs(
             continue
         if key in global_config:
             merged[key] = global_config[key]
+    return merged
+
+
+def _merge_authentication_configs(
+    global_auth: Any,
+    suite_auth: Any,
+    test_auth: Any,
+) -> dict[str, Any] | None:
+    merged: dict[str, Any] = {}
+    has_any = False
+
+    for source in (global_auth, suite_auth, test_auth):
+        if source is None:
+            continue
+        if not isinstance(source, dict):
+            raise ValueError("Authentication config must be a YAML object")
+
+        has_any = True
+        for key, value in source.items():
+            if key == "headers":
+                if value is None:
+                    continue
+                if not isinstance(value, dict):
+                    raise ValueError("Authentication headers must be a YAML object")
+                current = merged.get("headers", {})
+                merged["headers"] = {**current, **value}
+                continue
+            merged[key] = value
+
+    if not has_any:
+        return None
     return merged
 
 
