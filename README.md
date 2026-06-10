@@ -101,7 +101,7 @@ These deterministic checkes will run before LLM assertion. If they failed, LLM a
 - `authentication` - an object used for authentication bootstrap, required only when `login-required=true`.
 - `authentication.path` - default to `/api/login`, the path of login. shares the same origin as the target endpoint
 - `authentication. method` - default `POST`
-- `authentication.headers` - login headers passed to login path as-is, default `Content-Type: application/json`
+- `authentication.headers` - login headers passed to login path as-is, default `Content-Type: application/x-www-form-urlencoded`
 - `authentication.body` - body object of the login request, e.g., `{"email": "${TEST_USER_EMAIL}", "password": "${TEST_USER_PASSWORD}"}`
 - `asserter` - An object of the LLM service for asserting the `expected.output`. Required if there are LLM-asserting rounds
 - `asserter.url` - requied, e.g., "https://api.groq.com/openai/v1/chat/completions"

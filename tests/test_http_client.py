@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import unittest
+from urllib.parse import parse_qs
 
 from aita.http_client import _build_payload
+from aita.http_client import _encode_auth_body
 from aita.http_client import create_runtime_context
 from aita.http_client import _update_runtime_context
 from aita.models import EndpointResponse
@@ -37,6 +39,24 @@ class HttpClientTests(unittest.TestCase):
             session_id=None,
         )
         self.assertEqual(payload, {"message": "hello"})
+
+
+    def test_encode_auth_body_form_urlencoded(self) -> None:
+        body = {"email": "user@example.com", "password": "secret"}
+        encoded = _encode_auth_body(body, "application/x-www-form-urlencoded")
+        parsed = parse_qs(encoded.decode("utf-8"))
+        self.assertEqual(parsed["email"], ["user@example.com"])
+        self.assertEqual(parsed["password"], ["secret"])
+
+    def test_encode_auth_body_json(self) -> None:
+        body = {"email": "user@example.com", "password": "secret"}
+        encoded = _encode_auth_body(body, "application/json")
+        self.assertEqual(json.loads(encoded), body)
+
+    def test_encode_auth_body_defaults_to_json_for_unknown_content_type(self) -> None:
+        body = {"key": "value"}
+        encoded = _encode_auth_body(body, "text/plain")
+        self.assertEqual(json.loads(encoded), body)
 
 
 if __name__ == "__main__":

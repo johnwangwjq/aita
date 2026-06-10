@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from urllib.parse import urlencode
 from urllib.parse import urlparse
 from urllib.parse import urlunparse
 from urllib.request import HTTPCookieProcessor
@@ -75,10 +76,13 @@ def run_auth_request(
     context: RuntimeContext,
 ) -> EndpointResponse:
     request_url = _resolve_auth_request_url(endpoint, auth_request.path)
+    effective_headers = {"Content-Type": "application/x-www-form-urlencoded", **auth_request.headers}
+    content_type = effective_headers.get("Content-Type", "")
+    request_body = _encode_auth_body(auth_request.body, content_type)
     request = Request(
         request_url,
-        data=json.dumps(auth_request.body).encode("utf-8"),
-        headers={"Content-Type": "application/json", **auth_request.headers},
+        data=request_body,
+        headers=effective_headers,
         method=auth_request.method,
     )
     with context.opener.open(request, timeout=timeout) as response:
@@ -89,6 +93,12 @@ def run_auth_request(
             status_code=response.getcode(),
             headers={key: value for key, value in response.headers.items()},
         )
+
+
+def _encode_auth_body(body: dict, content_type: str) -> bytes:
+    if "application/x-www-form-urlencoded" in content_type:
+        return urlencode({k: str(v) for k, v in body.items()}).encode("utf-8")
+    return json.dumps(body).encode("utf-8")
 
 
 def _resolve_auth_request_url(endpoint: str, path: str) -> str:
