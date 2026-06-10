@@ -4,3 +4,7 @@ __pycache__/
 zjb-projects
 .vscode
 uv.lock
+
+# clojure
+.clj-kondo
+.lsp
