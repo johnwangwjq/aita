@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from aita.cli import _run_single_test
@@ -147,6 +148,29 @@ class RunnerSemanticsTests(unittest.TestCase):
 
         self.assertTrue(result.passed)
         self.assertEqual(asserter_mock.call_count, 0)
+
+    def test_hooks_run_with_testsuite_dir_as_cwd(self) -> None:
+        source_file = "/a/b/c.yaml"
+        spec = TestSpec(
+            name="x",
+            endpoint="http://e",
+            asserter=AsserterConfig(url="http://a", api_key="k", invoke_options={}),
+            identity=IdentityConfig(login_required=False, authentication=None),
+            pre_test=("echo pre",),
+            post_test=("echo post",),
+            rounds=(RoundSpec(input_text="hi", expected=None),),
+            source_file=source_file,
+            source_document_index=1,
+        )
+
+        with patch("aita.cli.run_hooks") as hooks_mock:
+            with patch("aita.cli.call_endpoint") as endpoint_mock:
+                endpoint_mock.return_value.body = "ok"
+                _run_single_test(spec, max_rounds=None, timeout=5, verbose=False)
+
+        expected_cwd = Path(source_file).resolve().parent
+        hooks_mock.assert_any_call(("echo pre",), cwd=expected_cwd)
+        hooks_mock.assert_any_call(("echo post",), cwd=expected_cwd)
 
 
 if __name__ == "__main__":

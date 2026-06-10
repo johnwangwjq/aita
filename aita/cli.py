@@ -182,7 +182,7 @@ def _run_single_test(
         runtime_context = create_runtime_context("logged-in" if spec.identity.login_required else "anonymous")
 
     try:
-        run_hooks(spec.pre_test, cwd=Path.cwd())
+        run_hooks(spec.pre_test, cwd=Path(spec.source_file).resolve().parent)
 
         if spec.identity.login_required and perform_login_bootstrap:
             if spec.identity.authentication is None:
@@ -287,7 +287,7 @@ def _run_single_test(
         errored = True
         failure_reason = str(exc)
     finally:
-        run_hooks(spec.post_test, cwd=Path.cwd())
+        run_hooks(spec.post_test, cwd=Path(spec.source_file).resolve().parent)
 
     passed = not errored and failure_reason is None
     return TestResult(
