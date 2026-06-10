@@ -34,7 +34,7 @@ def format_summary(summary: RunSummary) -> str:
     for result in summary.tests:
         status = "PASSED" if result.passed else ("ERRORED" if result.errored else "FAILED")
         lines.append(
-            f"- [{status}] {result.test_name} ({result.source_file}#{result.source_document_index})"
+            f"- [{status}] {result.test_name} ({result.source_file})"
         )
         if result.error_message:
             lines.append(f"  reason: {result.error_message}")
