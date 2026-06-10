@@ -96,7 +96,7 @@ class ContractIntegrationTests(unittest.TestCase):
                 RoundSpec(
                     input_text="你好",
                     expected=RoundExpected(
-                        response=None,
+                        like=None,
                         fail_on=None,
                         status_code=200,
                         status_kind="ok",
@@ -107,7 +107,7 @@ class ContractIntegrationTests(unittest.TestCase):
                 RoundSpec(
                     input_text="请继续",
                     expected=RoundExpected(
-                        response=None,
+                        like=None,
                         fail_on=None,
                         status_code=200,
                         status_kind="ok",
@@ -145,7 +145,7 @@ class ContractIntegrationTests(unittest.TestCase):
                 RoundSpec(
                     input_text="帮我做规划",
                     expected=RoundExpected(
-                        response=None,
+                        like=None,
                         fail_on=None,
                         status_code=200,
                         status_kind="ok",

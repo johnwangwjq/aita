@@ -261,14 +261,14 @@ def _to_test_spec(data: dict[str, Any], source_file: Path, doc_index: int) -> Te
         else:
             if not isinstance(expected_obj, dict):
                 raise ValueError(_key_error(source_file, doc_index, f"rounds[{round_index}].expected"))
-            response = expected_obj.get("response")
+            response = expected_obj.get("like")
             fail_on = expected_obj.get("fail-on")
             status_code = expected_obj.get("status-code")
             status_kind = expected_obj.get("status-kind")
             has_session_id = expected_obj.get("has-session-id")
             metadata_has = expected_obj.get("metadata-has", [])
             if response is not None and not isinstance(response, str):
-                raise ValueError(_key_error(source_file, doc_index, f"rounds[{round_index}].expected.response"))
+                raise ValueError(_key_error(source_file, doc_index, f"rounds[{round_index}].expected.like"))
             if fail_on is not None and not isinstance(fail_on, str):
                 raise ValueError(_key_error(source_file, doc_index, f"rounds[{round_index}].expected.fail-on"))
             if status_code is not None and not isinstance(status_code, int):
@@ -284,7 +284,7 @@ def _to_test_spec(data: dict[str, Any], source_file: Path, doc_index: int) -> Te
                 f"rounds[{round_index}].expected.metadata-has",
             )
             expected = RoundExpected(
-                response=response,
+                like=response,
                 fail_on=fail_on,
                 status_code=status_code if status_code is not None else 200,
                 status_kind=status_kind if status_kind is not None else "ok",

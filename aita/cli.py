@@ -295,7 +295,7 @@ def _run_single_test(
                 asserter=spec.asserter,
                 input_text=round_spec.input_text,
                 endpoint_response=endpoint_response.body,
-                expected_response=round_spec.expected.response,
+                expected_response=round_spec.expected.like,
                 fail_on=round_spec.expected.fail_on,
                 timeout=timeout,
             )

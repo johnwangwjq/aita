@@ -11,7 +11,7 @@ from aita.models import RoundExpected
 class DeterministicAssertionsTests(unittest.TestCase):
     def test_status_code_and_kind_pass(self) -> None:
         expected = RoundExpected(
-            response="hint",
+            like="hint",
             fail_on="bad",
             status_code=200,
             status_kind="ok",
@@ -30,7 +30,7 @@ class DeterministicAssertionsTests(unittest.TestCase):
 
     def test_status_code_mismatch_fails(self) -> None:
         expected = RoundExpected(
-            response=None,
+            like=None,
             fail_on=None,
             status_code=200,
             status_kind=None,
@@ -45,7 +45,7 @@ class DeterministicAssertionsTests(unittest.TestCase):
 
     def test_should_run_llm_assertion(self) -> None:
         expected = RoundExpected(
-            response=None,
+            like=None,
             fail_on=None,
             status_code=200,
             status_kind=None,

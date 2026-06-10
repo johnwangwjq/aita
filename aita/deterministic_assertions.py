@@ -57,4 +57,4 @@ def assert_deterministic_expectations(
 
 
 def should_run_llm_assertion(expected: RoundExpected) -> bool:
-    return expected.response is not None or expected.fail_on is not None
+    return expected.like is not None or expected.fail_on is not None

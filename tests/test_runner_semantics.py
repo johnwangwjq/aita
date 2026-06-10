@@ -49,7 +49,7 @@ class RunnerSemanticsTests(unittest.TestCase):
                 RoundSpec(
                     input_text="r1",
                     expected=RoundExpected(
-                        response="x",
+                        like="x",
                         fail_on="bad",
                         status_code=None,
                         status_kind=None,
@@ -60,7 +60,7 @@ class RunnerSemanticsTests(unittest.TestCase):
                 RoundSpec(
                     input_text="r2",
                     expected=RoundExpected(
-                        response="x",
+                        like="x",
                         fail_on="bad",
                         status_code=None,
                         status_kind=None,
@@ -126,7 +126,7 @@ class RunnerSemanticsTests(unittest.TestCase):
                 RoundSpec(
                     input_text="r1",
                     expected=RoundExpected(
-                        response=None,
+                        like=None,
                         fail_on=None,
                         status_code=200,
                         status_kind=None,

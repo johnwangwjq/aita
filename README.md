@@ -60,17 +60,17 @@ post-test:                             #
 rounds:
   - input: How to buy the new cool pants?
     expected: 
-      response: Which city are you?
+      like: Which city are you?
       fail-on: Didn't ask for the city
   - input: LS
     expected: 
-      response: >
+      like: >
         Your reply is ambiguous,
         please say the full name of the city
       fail-on: Didn't acknowledge user the ambiguity
   - input: I said "LZ"!
     expected: 
-      response: Sorry, do you mean "LA"?
+      like: Sorry, do you mean "LA"?
 ```
 
 # Rounds
@@ -80,14 +80,14 @@ Each round has a required `input` for user intput text, and an optional `expecte
 
 `expected` object:
 
-- `response` - Optional text replied from the target enpoint for the input. LLM assertion will be skipped if this is absent
+- `like` - Optional. What the replied text is alike. LLM assertion will be skipped if this is absent
 - `fail-on`: The LLM prompt for checking if the response is expected
 - `status-code`: assert HTTP status code. Defaults to `200` when `expected` is present.
 - `status-kind`: assert JSON `status.kind`. Defaults to `"ok"` when `expected` is present.
 - `has-session-id`: assert whether JSON `session_id` exists
 - `metadata-has`: assert listed keys exist in JSON `metadata`
 
-Note that `response + fail-on` is non-deterministic LLM assertion while all others are deterministic ones.
+Note that `like + fail-on` is non-deterministic LLM assertion while all others are deterministic ones.
 These deterministic checkes will run before LLM assertion. If they failed, LLM assertion will never run.
 
 # Configuration
@@ -161,7 +161,7 @@ name: first reply for plan is asking for target country
 rounds:
   - input: 请帮我做留学规划
     expected:
-      response: 请问您想去哪个国家？
+      like: 请问您想去哪个国家？
       fail-on: 没有询问用户想去哪个国家
 ```
 
@@ -252,15 +252,15 @@ post-test:
 rounds:
   - input: How to buy the new cool pants?
     expected: 
-      response: Which city are you?
+      like: Which city are you?
       fail-on: Didn't ask for the city
   - input: LS
     expected: 
-      response: Your reply is ambiguous, please say the full name of the city
+      like: Your reply is ambiguous, please say the full name of the city
       fail-on: Didn't acknowledge user the ambiguity
   - input: I said "LZ"!
     expected: 
-      response: Sorry, do you mean "LA"?
+      like: Sorry, do you mean "LA"?
 ```
 
 Aita works as something like:

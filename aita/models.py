@@ -16,7 +16,7 @@ class AsserterConfig:
 
 @dataclass(frozen=True)
 class RoundExpected:
-    response: str | None
+    like: str | None
     fail_on: str | None
     status_code: int | None
     status_kind: str | None

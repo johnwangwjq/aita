@@ -60,7 +60,7 @@ post-test:
 # rounds: list of rounds (required in test docs)
 # rounds[].input: user message sent to endpoint (required)
 # rounds[].expected: optional checks
-# rounds[].expected.response: optional expected hint for LLM assertion
+# rounds[].expected.like: optional expected hint for LLM assertion
 # rounds[].expected.fail-on: optional failure criteria for LLM assertion
 # rounds[].expected.status-code: optional deterministic HTTP status check
 # rounds[].expected.status-kind: optional deterministic JSON status.kind check
