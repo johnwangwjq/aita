@@ -119,9 +119,15 @@ def _run_command(
     results: list[TestResult] = []
     logged_in_context_cache: dict[str, RuntimeContext] = {}
     for suite_dir, suite_pre, suite_post, specs in suite_groups:
+
+        if verbose: print(f'Run testsuite {suite_dir.name}')
+
         run_hooks(suite_pre, cwd=suite_dir.resolve(), quiet=quiet_hooks)
         try:
             for spec in specs:
+
+                if verbose: print(f'Testing {spec.name}')
+
                 runtime_context: RuntimeContext | None = None
                 perform_login_bootstrap = True
 
@@ -238,8 +244,10 @@ def _run_single_test(
 
         for index, round_spec in enumerate(spec.rounds, start=1):
             if max_rounds is not None and index > max_rounds:
+                if verbose: print(f"  Stop assertion at max round: {max_rounds}")
                 break
 
+            if verbose: print(f'  Sending {round_spec.input_text}')
             endpoint_response = call_endpoint(
                 endpoint=spec.endpoint,
                 input_text=round_spec.input_text,
