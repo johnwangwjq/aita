@@ -4,6 +4,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import call
 from unittest.mock import patch
 
 from aita.cli import main
@@ -122,6 +123,50 @@ rounds:
                 code = main([str(suite_file)])
 
             self.assertEqual(code, 2)
+
+    def test_suite_hooks_run_once_per_test_hooks_run_per_test(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "aita.yaml").write_text(
+                "endpoint: http://e\nasserter:\n  url: http://a\n  api-key: k\n",
+                encoding="utf-8",
+            )
+            suite = root / "suite"
+            suite.mkdir()
+            (suite / "aita.yaml").write_text(
+                "pre-test:\n  - echo suite-pre\npost-test:\n  - echo suite-post\n",
+                encoding="utf-8",
+            )
+            (suite / "t1.yaml").write_text(
+                "name: t1\npre-test:\n  - echo per-test-pre\nrounds:\n  - input: hi\n",
+                encoding="utf-8",
+            )
+            (suite / "t2.yaml").write_text(
+                "name: t2\nrounds:\n  - input: hi\n",
+                encoding="utf-8",
+            )
+
+            os.environ.setdefault("TEST_KEY", "k")
+            with patch("pathlib.Path.cwd", return_value=root):
+                with patch("aita.cli.run_hooks") as hooks_mock:
+                    with patch("aita.cli.call_endpoint") as ep_mock:
+                        ep_mock.return_value.body = "ok"
+                        ep_mock.return_value.status_code = 200
+                        ep_mock.return_value.headers = {}
+                        main([str(suite)])
+
+            suite_dir = suite.resolve()
+            # Suite hooks called exactly once each (wrapping both tests)
+            hooks_mock.assert_any_call(("echo suite-pre",), cwd=suite_dir)
+            hooks_mock.assert_any_call(("echo suite-post",), cwd=suite_dir)
+            suite_pre_calls = [c for c in hooks_mock.call_args_list if c == call(("echo suite-pre",), cwd=suite_dir)]
+            suite_post_calls = [c for c in hooks_mock.call_args_list if c == call(("echo suite-post",), cwd=suite_dir)]
+            self.assertEqual(len(suite_pre_calls), 1)
+            self.assertEqual(len(suite_post_calls), 1)
+            # Per-test hook for t1 called once (only t1 defines it)
+            t1_cwd = (suite / "t1.yaml").resolve().parent
+            per_test_pre_calls = [c for c in hooks_mock.call_args_list if c == call(("echo per-test-pre",), cwd=t1_cwd)]
+            self.assertEqual(len(per_test_pre_calls), 1)
 
 
 if __name__ == "__main__":

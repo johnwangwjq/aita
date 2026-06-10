@@ -9,6 +9,7 @@ from click.exceptions import UsageError
 
 from aita import exit_codes
 from aita.config import build_test_specs
+from aita.config import get_suite_hooks
 from aita.config import load_dotenv
 from aita.config import load_suite_config
 from aita.config import load_test_documents
@@ -87,54 +88,66 @@ def _run_command(
     load_dotenv(cwd)
     global_config = require_global_config(cwd) if (cwd / "aita.yaml").exists() else {}
     resolved_targets = _resolve_targets(cwd, targets, run_all)
-    all_specs: list[TestSpec] = []
+
+    # Build per-target groups: (target, suite_dir, suite_hooks, specs)
+    suite_groups: list[tuple[Path, tuple[str, ...], tuple[str, ...], list[TestSpec]]] = []
     seen_test_files: set[Path] = set()
     for target in resolved_targets:
         suite_config = load_suite_config(target)
+        suite_pre, suite_post = get_suite_hooks(suite_config, global_config)
+        suite_dir = target if target.is_dir() else target.parent
+        specs: list[TestSpec] = []
         for test_file in discover_test_files(target):
             test_file_key = test_file.resolve()
             if test_file_key in seen_test_files:
                 continue
             seen_test_files.add(test_file_key)
             docs = load_test_documents(test_file)
-            all_specs.extend(build_test_specs(test_file, docs, global_config, suite_config))
+            specs.extend(build_test_specs(test_file, docs, global_config, suite_config))
+        suite_groups.append((suite_dir, suite_pre, suite_post, specs))
 
     if dry_run:
-        print(f"Validation successful. Tests discovered: {len(all_specs)}")
+        total = sum(len(specs) for _, _, _, specs in suite_groups)
+        print(f"Validation successful. Tests discovered: {total}")
         return exit_codes.PASS
 
     results: list[TestResult] = []
     logged_in_context_cache: dict[str, RuntimeContext] = {}
-    for spec in all_specs:
-        runtime_context: RuntimeContext | None = None
-        perform_login_bootstrap = True
+    for suite_dir, suite_pre, suite_post, specs in suite_groups:
+        run_hooks(suite_pre, cwd=suite_dir.resolve())
+        try:
+            for spec in specs:
+                runtime_context: RuntimeContext | None = None
+                perform_login_bootstrap = True
 
-        if spec.identity.login_required:
-            cache_key = _build_logged_in_cache_key(spec)
-            runtime_context = logged_in_context_cache.get(cache_key)
-            if runtime_context is None:
-                runtime_context = create_runtime_context("logged-in")
-                if spec.identity.authentication is None:
-                    raise ValueError("authentication is required when login-required is true")
-                run_auth_request(
-                    endpoint=spec.endpoint,
-                    auth_request=spec.identity.authentication,
-                    timeout=timeout,
-                    context=runtime_context,
+                if spec.identity.login_required:
+                    cache_key = _build_logged_in_cache_key(spec)
+                    runtime_context = logged_in_context_cache.get(cache_key)
+                    if runtime_context is None:
+                        runtime_context = create_runtime_context("logged-in")
+                        if spec.identity.authentication is None:
+                            raise ValueError("authentication is required when login-required is true")
+                        run_auth_request(
+                            endpoint=spec.endpoint,
+                            auth_request=spec.identity.authentication,
+                            timeout=timeout,
+                            context=runtime_context,
+                        )
+                        logged_in_context_cache[cache_key] = runtime_context
+                    perform_login_bootstrap = False
+
+                results.append(
+                    _run_single_test(
+                        spec,
+                        max_rounds=max_rounds,
+                        timeout=timeout,
+                        verbose=verbose,
+                        runtime_context=runtime_context,
+                        perform_login_bootstrap=perform_login_bootstrap,
+                    )
                 )
-                logged_in_context_cache[cache_key] = runtime_context
-            perform_login_bootstrap = False
-
-        results.append(
-            _run_single_test(
-                spec,
-                max_rounds=max_rounds,
-                timeout=timeout,
-                verbose=verbose,
-                runtime_context=runtime_context,
-                perform_login_bootstrap=perform_login_bootstrap,
-            )
-        )
+        finally:
+            run_hooks(suite_post, cwd=suite_dir.resolve())
 
     summary = build_summary(results)
     print(format_summary(summary))

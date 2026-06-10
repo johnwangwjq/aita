@@ -23,6 +23,17 @@ A testsuite is a directory storing one or more tests.
 Tests in the same testsuites share the same test configures, ie., the `aita.yaml`.
 A test can override parent(testsuites or top level) configures by having them directly in its yaml file.
 
+## Hook isolation
+
+`pre-test` and `post-test` hooks have two scopes with different isolation semantics:
+
+- **Suite-level hooks** — defined in a testsuite's `aita.yaml` (or inherited from the global `aita.yaml` as a fallback). These run **once per testsuite**: before the first test in the suite starts, and after the last test in the suite finishes. The working directory is the testsuite directory.
+- **Per-test hooks** — defined directly in a test yaml file. These run **once per test**: before and after that individual test. The working directory is also the testsuite directory (the directory containing the test file), so `./` refers to the suite dir and `../` refers to the project root.
+
+This means if suites A and B each need different DB fixtures, put the seed/clean scripts in their respective `aita.yaml` files and the DB will be set up once for each suite, not once per test file.
+
+The global `aita.yaml` `pre/post-test` is purely a configuration fallback — it provides the hook commands for any suite that does not define its own. The isolation boundary is always the suite, regardless of where the hook string originates.
+
 # Test yaml file
 
 A "test" is writen in a yaml file of its own, with following fields:

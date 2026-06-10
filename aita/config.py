@@ -17,7 +17,7 @@ from aita.models import TestSpec
 
 _ENV_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 _DOTENV_LINE_PATTERN = re.compile(r"^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$")
-_SHARED_KEYS = ("endpoint", "asserter", "login-required", "authentication", "pre-test", "post-test")
+_SHARED_KEYS = ("endpoint", "asserter", "login-required", "authentication")
 
 
 def load_dotenv(cwd: Path) -> None:
@@ -52,6 +52,25 @@ def require_global_config(cwd: Path) -> dict[str, Any]:
     if not global_path.exists():
         raise ValueError(f"Missing required global config: {global_path}")
     return _read_yaml_single(global_path)
+
+
+def get_suite_hooks(
+    suite_config: dict[str, Any],
+    global_config: dict[str, Any],
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    pre_raw = suite_config.get("pre-test") or global_config.get("pre-test") or []
+    post_raw = suite_config.get("post-test") or global_config.get("post-test") or []
+    return _hooks_to_tuple(pre_raw), _hooks_to_tuple(post_raw)
+
+
+def _hooks_to_tuple(value: Any) -> tuple[str, ...]:
+    if not value:
+        return ()
+    if isinstance(value, str):
+        return (value,)
+    if isinstance(value, list) and all(isinstance(item, str) and item for item in value):
+        return tuple(value)
+    raise ValueError(f"pre-test/post-test must be a list of non-empty strings, got: {value!r}")
 
 
 def load_suite_config(path: Path) -> dict[str, Any]:

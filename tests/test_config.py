@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from aita.config import build_test_specs
+from aita.config import get_suite_hooks
 from aita.config import load_dotenv
 from aita.config import load_test_documents
 from aita.config import require_global_config
@@ -87,7 +88,7 @@ rounds:
             self.assertEqual(len(specs), 2)
             self.assertEqual(specs[0].endpoint, "http://suite-endpoint")
             self.assertEqual(specs[0].asserter.url, "http://suite-asserter")
-            self.assertEqual(specs[0].pre_test, ("echo global-pre",))
+            self.assertEqual(specs[0].pre_test, ())  # global pre-test is suite-level, not per-test
             self.assertEqual(specs[1].endpoint, "http://doc-endpoint")
             self.assertEqual(specs[1].asserter.url, "http://doc-asserter")
             self.assertEqual(specs[1].asserter.api_key, "k")
@@ -238,6 +239,55 @@ rounds:
 
             with self.assertRaises(ValueError):
                 build_test_specs(test_file, docs, global_config, {})
+
+    def test_get_suite_hooks_returns_suite_config_hooks(self) -> None:
+        suite_config = {"pre-test": ["echo suite-pre"], "post-test": ["echo suite-post"]}
+        global_config = {"pre-test": ["echo global-pre"], "post-test": ["echo global-post"]}
+        pre, post = get_suite_hooks(suite_config, global_config)
+        self.assertEqual(pre, ("echo suite-pre",))
+        self.assertEqual(post, ("echo suite-post",))
+
+    def test_get_suite_hooks_falls_back_to_global(self) -> None:
+        suite_config: dict = {}
+        global_config = {"pre-test": ["echo global-pre"], "post-test": ["echo global-post"]}
+        pre, post = get_suite_hooks(suite_config, global_config)
+        self.assertEqual(pre, ("echo global-pre",))
+        self.assertEqual(post, ("echo global-post",))
+
+    def test_get_suite_hooks_returns_empty_when_none_defined(self) -> None:
+        pre, post = get_suite_hooks({}, {})
+        self.assertEqual(pre, ())
+        self.assertEqual(post, ())
+
+    def test_per_test_hooks_not_inherited_from_suite(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            test_file = root / "case.yaml"
+            test_file.write_text("name: x\nrounds:\n  - input: hi\n", encoding="utf-8")
+
+            docs = load_test_documents(test_file)
+            suite_config = {"pre-test": ["echo suite-pre"], "post-test": ["echo suite-post"]}
+            global_config = {"endpoint": "http://e", "asserter": {"url": "http://a", "api-key": "k"}}
+
+            specs = build_test_specs(test_file, docs, global_config, suite_config)
+            self.assertEqual(specs[0].pre_test, ())
+            self.assertEqual(specs[0].post_test, ())
+
+    def test_per_test_hooks_used_when_defined_in_test(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            test_file = root / "case.yaml"
+            test_file.write_text(
+                "name: x\npre-test:\n  - echo test-pre\nrounds:\n  - input: hi\n",
+                encoding="utf-8",
+            )
+
+            docs = load_test_documents(test_file)
+            suite_config = {"pre-test": ["echo suite-pre"]}
+            global_config = {"endpoint": "http://e", "asserter": {"url": "http://a", "api-key": "k"}}
+
+            specs = build_test_specs(test_file, docs, global_config, suite_config)
+            self.assertEqual(specs[0].pre_test, ("echo test-pre",))
 
 
 if __name__ == "__main__":
