@@ -180,7 +180,7 @@ def _resolve_targets(cwd: Path, targets: Sequence[Path], run_all: bool) -> tuple
         suite_dirs = tuple(
             child
             for child in sorted(cwd.iterdir())
-            if child.is_dir() and bool(discover_test_files(child))
+            if child.is_dir() and (not child.name.startswith('-')) and bool(discover_test_files(child))
         )
         if not suite_dirs:
             raise ValueError(f"No testsuite directories found in {cwd}")

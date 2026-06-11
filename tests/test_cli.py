@@ -8,6 +8,7 @@ from unittest.mock import call
 from unittest.mock import patch
 
 from aita.cli import _find_project_root
+from aita.cli import _resolve_targets
 from aita.cli import main
 
 
@@ -158,6 +159,23 @@ post-test: []
                 code = main(["--all", "--dry-run"])
 
             self.assertEqual(code, 0)
+
+    def test_dry_run_all_ignores_dirs_with_leading_dash(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+
+            good = root / "suite"
+            good.mkdir()
+            (good / "case.yaml").write_text("name: good\nrounds:\n  - input: hi\n", encoding="utf-8")
+
+            ignored = root / "-disabled"
+            ignored.mkdir()
+            (ignored / "case.yaml").write_text("name: bad\nrounds:\n  - input: hi\n", encoding="utf-8")
+
+            targets = _resolve_targets(root, (), run_all=True)
+
+            self.assertIn(good.resolve(), targets)
+            self.assertNotIn(ignored.resolve(), targets)
 
     def test_missing_global_config_returns_error_code(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

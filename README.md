@@ -23,6 +23,12 @@ A testsuite is a directory storing one or more tests.
 Tests in the same testsuites share the same test configures, ie., the `aita.yaml`.
 A test can override parent(testsuites or top level) configures by having them directly in its yaml file.
 
+## Skipping testsuites
+
+Prefix a testsuite directory name with `-` to exclude it from `--all` runs. For example, `-wip` will be ignored while all other suites run normally. This is useful for temporarily disabling a suite without deleting it.
+
+Explicitly passing a "-" prefixed path as a target argument still works — the skip only applies to `--all` discovery.
+
 ## Hook isolation
 
 `pre-test` and `post-test` hooks have two scopes with different isolation semantics:
