@@ -85,7 +85,12 @@ Each round has a required `input` for user intput text, and an optional `expecte
 - `status-code`: assert HTTP status code. Defaults to `200` when `expected` is present.
 - `status-kind`: assert JSON `status.kind`. Defaults to `"ok"` when `expected` is present.
 - `has-session-id`: assert whether JSON `session_id` exists
-- `metadata-has`: assert listed keys exist in JSON `metadata`
+- `metadata-has`: assert entries exist in JSON `metadata`. Each entry in the list can be:
+  - `key` — asserts the top-level key exists (e.g. `actions`)
+  - `a.b.c` — asserts a nested path exists (dot-separated)
+  - `a.b.c=value` — asserts a nested path exists and equals `value`
+
+  Entries are checked in order; the first failure stops the check immediately and the remaining entries are not evaluated.
 
 Note that `like + fail-on` is non-deterministic LLM assertion while all others are deterministic ones.
 These deterministic checkes will run before LLM assertion. If they failed, LLM assertion will never run.
@@ -184,6 +189,7 @@ rounds:
     expected:
       metadata-has:
         - actions
+        - server-routing.intent=general
 ```
 
 # Run as `aita` command

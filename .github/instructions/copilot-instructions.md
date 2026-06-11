@@ -12,7 +12,7 @@ Aita is cli tool running test against an AI assistant API to see if it replies a
 - `tests` - unittests. run test: `python -m unittest discover tests/`
 - `.venv/` - the virtual environment
 
-refer to the [readme](../../README.md) for the spec of test aita support.
+refer to the [readme](../../README.md) for the spec of test that aita supports.
 
 # Rules on coding:
 1. use as less as possible dependencies in python

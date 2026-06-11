@@ -6,6 +6,17 @@ from aita.models import EndpointResponse
 from aita.models import RoundExpected
 
 
+def _resolve_metadata_path(metadata_obj: dict, path: str) -> tuple[bool, object]:
+    """Traverse a dotted path in metadata. Returns (found, value)."""
+    parts = path.split(".")
+    current: object = metadata_obj
+    for part in parts:
+        if not isinstance(current, dict) or part not in current:
+            return False, None
+        current = current[part]
+    return True, current
+
+
 def assert_deterministic_expectations(
     expected: RoundExpected,
     endpoint_response: EndpointResponse,
@@ -49,9 +60,18 @@ def assert_deterministic_expectations(
         metadata_obj = payload.get("metadata") if payload is not None else None
         if not isinstance(metadata_obj, dict):
             return False, "Missing metadata object in response"
-        for key in expected.metadata_has:
-            if key not in metadata_obj:
-                return False, f"Expected metadata key not found: {key}"
+        for entry in expected.metadata_has:
+            if "=" in entry:
+                path, expected_val = entry.split("=", 1)
+                found, actual = _resolve_metadata_path(metadata_obj, path)
+                if not found:
+                    return False, f"Expected metadata path not found: {path}"
+                if actual != expected_val:
+                    return False, f"Expected metadata.{path}={expected_val!r}, got {actual!r}"
+            else:
+                found, _ = _resolve_metadata_path(metadata_obj, entry)
+                if not found:
+                    return False, f"Expected metadata key not found: {entry}"
 
     return True, None
 
